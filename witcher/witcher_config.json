@@ -1,0 +1,45 @@
+{
+  "testname": "juiceshop",
+  "afl_inst_interpreter_binary": "/usr/local/bin/node",
+  "wc_inst_interpreter_binary": "/usr/local/bin/node",
+  "base_url": "http://localhost:3000/#/",
+  "afl_path": "/afl",
+  "ld_library_path":"/wclibs",
+  "afl_preload":"/wclibs/lib_db_fault_escalator.so",
+  "number_of_trials": 1,
+  "number_of_refuzzes": 1,
+  "timeout" : 1200,
+  "run_timeout": 5000,
+  "server_base_port": 80,
+  "script_skip_list": [],
+  "script_random_order": 0,
+  "cores": 1,
+  "binary_options":"",
+  "request_crawler": {
+    "form_url" : "http://kitribob.kro.kr:3000/#/login",
+    "usernameSelector": "#email",
+    "usernameValue": "admin@juice-sh.op",
+    "passwordSelector": "#password",
+    "passwordValue": "admin123",
+    "submitType": "enter",
+    "positiveLoginMessage": "Your Basket",
+    "method": "POST",
+    "form_selector": "#login-form",
+    "form_submit_selector": "#loginButton",
+    "ignoreValues": ["t", "d", "sid"],
+    "urlUniqueIfValueUnique": []
+  },
+
+  "direct":{
+    "url": "http://localhost:3000/rest/user/login",
+    "postData": "{\"email\":\"admin@juice-sh.op\",\"password\":\"admin123\"}",
+    "getData": "",
+    "method": "POST",
+    "positiveHeaders": "authentication",
+    "cgiBinary": "/p/webcam/javascript/tests/httpreqr/httpreqr",
+    "loginSessionCookie" : "",
+    "mandatoryGet": "",
+    "extra_authorized_requests": [{"url": ""}]
+  }
+
+}
