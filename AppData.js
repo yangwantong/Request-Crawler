@@ -52,6 +52,11 @@ export class AppData {
             this.addRequest(FoundRequest.requestParamFactory(`${this.site_url.href}`, "GET", "", {}, "initial", this.site_url.href))
         }
     }
+
+    /**
+     * Gremlin Value 추가
+     * @param {*} newval 
+     */
     addGremlinValue(newval) {
         this.gremlinValues.add(newval);
     }
@@ -75,10 +80,10 @@ export class AppData {
         }
     }
 
-   /**
-    * request_data.json 파일 로드 
-    * @returns {boolean}    파일이 존재하면 true, 존재하지 않으면 false 반환
-    */
+    /**
+     * request_data.json 파일 로드 
+     * @returns {boolean}    파일이 존재하면 true, 존재하지 않으면 false 반환
+     */
     loadReqsFromJSON() {
         let json_fn = path.join(this.base_appdir, "request_data.json");
 
@@ -99,7 +104,7 @@ export class AppData {
             return true
             //console.log(requestsFound);
         }
-        console.log(`${BLUE}[INFO] Not Founded request_data.json${ENDCOLOR}`);
+        console.log(`${BLUE}[loadReqsFromJSON] 기존 request_data.json 파일이 존재하지 않습니다. 새롭게 크롤링을 시작합니다.${ENDCOLOR}`);
         return false;
     }
 
@@ -125,6 +130,10 @@ export class AppData {
         console.log(`RESET attempts to ${this.requestsFound[key]["attempts"]} for ${key}`)
     }
 
+    /**
+     * requestFound의 url과 attempts를 출력
+     * @returns {string}    url과 attempts를 출력한 문자열
+     */
     getRequestInfo() {
         let outstr = "";
         for (let value of Object.values(this.requestsFound)) {
@@ -401,7 +410,7 @@ export class AppData {
     /**
      * Adds the supplied request to the list of requests
      * @param fRequest:FoundRequest
-     * @returns {boolean}
+     * @returns {boolean}   requestsFound에 추가되면 true, 추가되지 않으면 false 반환
      */
     addRequest(fRequest) {
 
@@ -425,11 +434,11 @@ export class AppData {
                 this.collectedURL += 1;
                 this.requestsFound[fRequest.getRequestKey()] = fRequest;
                 // color GREEN
-                console.log(`${YELLOW}[+] addRequest : ${ENDCOLOR}` + reqkey);
+                console.log(`${YELLOW}[addRequest] ` + fRequest.from + ` : ${ENDCOLOR}` + reqkey);
                 return true;
             }
         } catch (error) {
-            console.error(error);
+            console.error("[addRequest] ERROR 발생 : " + error)
             return false;
         }
     }
@@ -461,9 +470,14 @@ export class AppData {
     hasRequests() {
         return Object.keys(this.requestsFound).length === 0
     }
+
+    /**
+     * @returns {number}    requestsFound의 개수 반환
+     */
     numRequestsFound() {
         return Object.keys(this.requestsFound).length
     }
+
     ignoreRequest(urlstr) {
         try {
             let url = new URL(urlstr);
@@ -514,14 +528,20 @@ export class AppData {
         }
         return false
     }
+
+    /**
+     * 
+     * @returns {FoundRequest}  requestsFound에서 다음 무작위 request 반환
+     */
     getNextRequest() {
         let skips = 0;
         // console.log(inputSet);
         while (this.currentURLRound <= MAX_NUM_ROUNDS) {
             let randomKeys = Object.keys(this.requestsFound);
             //this.shuffle(randomKeys);
-            console.log(`${BLUE}[INFO] getNextRequest (Shown reandomKeys)${ENDCOLOR}`)
+            console.log(`${BLUE}[getNextRequest] Shown reandomKeys${ENDCOLOR}`)
             console.log(randomKeys);
+
             let cnt = 0;
             for (const key of randomKeys) {
                 let req = this.requestsFound[key];
@@ -533,12 +553,12 @@ export class AppData {
                 } else {
                     if (req["attempts"] < this.currentURLRound) {
                         if ((cnt + 5) < randomKeys.length && skips < 5 && this.checkToSkip(req["_urlstr"])) {
-                            console.log(`SKIPPING ${req} for now `);
+                            console.log(`[getNextRequest] SKIPPING ${req} for now `);
                             continue;
                         }
                         req["attempts"] += 1;
                         this.save();
-                        console.log(`${GREEN}[+] Save : ${ENDCOLOR}` + key);
+                        console.log(`${GREEN}[SAVE] request data에 저장됨 : ${ENDCOLOR}` + key);
                         req["key"] = key;
                         this.currentRequest = req;
                         return req;

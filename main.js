@@ -173,19 +173,15 @@ function startExploration(workers = 1, appData) {
     }
     let currentURLRound = appData.currentURLRound;
 
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
+    console.log("[startExploration] currentURLRound : ", currentURLRound)
+    console.log("############# STARTING EXPLORATION #############")
     console.log(appData.getRequestInfo());
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
-    console.log(`DoNeDoNeDoNeDoNeDoNeDoNeDoNe ${currentURLRound} DoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNeDoNe`);
+    console.log("#################################################")
 }
 
 
 // START HERE
 if (process.argv.length > 3) {
-    console.log(`${BLUE}[INFO] Starting request crawler${ENDCOLOR}`)
     // console.log(process.argv);
     console.log(`${GREEN}[+] Target Site: ${ENDCOLOR}` + process.argv[2]);
     console.log(`${GREEN}[+] AppDir: ${ENDCOLOR}` + process.argv[3]);

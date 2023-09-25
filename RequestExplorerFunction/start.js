@@ -56,6 +56,10 @@ export async function start() {
 
     }
 
+    /**
+     * 페이지 에러를 인터셉터 하기 위한 핸들러
+     * @param {*} error 
+     */
     function pageError(error) {
         let msg = error.message;
         if (msg.length > 50) {
@@ -76,8 +80,12 @@ export async function start() {
 
     }
 
+    /**
+     * console.log 메시지를 인터셉터 하기 위한 핸들러
+     * @param {*} message 
+     */
     function consoleLog(message) {
-        console.log(`${BLUE}[consoleLog] message : ${ENDCOLOR}` + message.text())
+        // console.log(`${BLUE}[consoleLog] message : ${ENDCOLOR}` + message.text())
 
         if (message.text().indexOf("[WC]") > -1) {
             if (message.text().indexOf("lamehorde is done") > -1) {
@@ -111,7 +119,7 @@ export async function start() {
      * In the second, we attempt to determine if the request should be aborted.
      * @param req
      */
-    function processRequest(req) {  // Request를 인터셉트 하기 위한 함수
+    function processRequest(req) {
         // console.log("[WC] processRequest called : " + req.url());
         // interception does not fire for /#/XXXX changes
 
@@ -127,11 +135,11 @@ export async function start() {
             req.continue()
             return;
         }
-        // TODO: 이미지 요청은 무시 (코드 추가)
-        if (tempurl.pathname.search(/\.png$/) > -1 || tempurl.pathname.search(/\.jpg$/) > -1 || tempurl.pathname.search(/\.gif$/) > -1) {
-            req.continue()
-            return;
-        }
+        // TODO: 이미지 요청은 무시 (새롭게 추가한 코드)
+        // if (tempurl.pathname.search(/\.png$/) > -1 || tempurl.pathname.search(/\.jpg$/) > -1 || tempurl.pathname.search(/\.gif$/) > -1) {
+        //     req.continue()
+        //     return;
+        // }
 
         // TODO: 이건 왜 있는 거지? HNAP1 요청처리...?
         // if (req.url().search(/.*HNAP1/) > -1) {
@@ -334,7 +342,7 @@ export async function start() {
         }
     } // end processrequest
 
-    console.log(`${BLUE}[INFO] Browser launching with url=${this.url.href}${ENDCOLOR}`);
+    console.log(`${BLUE}[processRequest] Browser launching with url=${this.url.href}${ENDCOLOR}`);
 
     try {
         try {
@@ -375,7 +383,7 @@ export async function start() {
 
             // witcher_config.json에 로그인 데이터가 존재할경우 로그인을 수행한다.
             if (this.loginData !== undefined && 'form_url' in this.loginData) {
-                let loginCookies = await this.do_login(this.page);
+                let loginCookies = await this.do_login(this.page);   // 로그인 수행
                 await this.addCookiesToPage(loginCookies, this.cookieData, this.page).catch(function (error) {
                     console.log(`${RED}[LOGIN] COOKIE ERROR : ${ENDCOLOR}`, error)
                 });
@@ -410,7 +418,7 @@ export async function start() {
             console.log(e.stack);
         } finally {
             if (this.pagetimeout) {
-                console.log("[WC] \x1b[38;5;10mRemoving page timer for browser \x1b[0m");
+                console.log("[processRequest] \x1b[38;5;10mRemoving page timer for browser \x1b[0m");
                 clearTimeout(this.pagetimeout);
             }
             clearInterval(gremlinsErrorTest);

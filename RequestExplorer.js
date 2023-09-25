@@ -76,7 +76,7 @@ export class RequestExplorer {
     getConfigData() {
         let json_fn = path.join(this.base_appdir, "witcher_config.json");
         if (fs.existsSync(json_fn)) {
-            console.log(`${ORANGE}[Login] Login Data Founded in witcher_config.json${ENDCOLOR}`)
+            console.log(`${ORANGE}[getConfigData] witcher_config.json에서 로그인 정보를 발견했습니다.${ENDCOLOR}`)
             let jstrdata = fs.readFileSync(json_fn);
             this.loginData = JSON.parse(jstrdata)["request_crawler"];
             this.appData.setIgnoreValues(this.loginData["ignoreValues"]);
@@ -110,26 +110,34 @@ export class RequestExplorer {
         }
     }
 
+    /**
+     * 
+     * @param {*} page 
+     * @param {*} tag 
+     * @param {*} attribute 
+     * @param {*} completed 
+     * @returns 
+     */
     async searchForURLSelector(page, tag, attribute, completed = {}) {
         let elements = [];
-        console.log("[WC] searchForURLSelector starting.");
+        console.log("[searchForURLSelector] START : " + tag + ", " + attribute);
         try {
             const links = await page.$$(tag);
             for (var i = 0; i < links.length; i++) {
                 if (links[i]) {
                     if (i === 0) {
                         let hc = await links[i].getProperty("hashCode");
-                        console.log(`[WC] check element hash = ${hc} ${typeof (links[i])}`);
+                        console.log(`[searchForURLSelector] check element hash = ${hc} ${typeof (links[i])}`);  // TODO: 오류 해결 필요 => undefined, object로 출력됨
                     }
                     await this.resetURLBack(page);
                     let valueHandle = null;
                     try {
                         valueHandle = await links[i].getProperty(attribute);
                     } catch (ex) {
-                        console.log(`[WC]\x1b[38; 5; 197m link #${i} /${links.length} error encountered while trying to getProperty`, typeof (page), page.url(), tag, attribute, links[i], "\n", ex, "\x1b[0m");
+                        console.log(`[searchForURLSelector]\x1b[38; 5; 197m link #${i} /${links.length} error encountered while trying to getProperty`, typeof (page), page.url(), tag, attribute, links[i], "\n", ex, "\x1b[0m");
                         try {
-                            console.log("[WC] Trying again", links[i]);
-
+                            console.log("[searchForURLSelector] Trying again!!");
+                            // console.log("[searchForURLSelector] Trying again", links[i]);
                             valueHandle = await links[i].getProperty(attribute);
                         } catch (eex) {
                             continue;
@@ -145,7 +153,7 @@ export class RequestExplorer {
             }
 
         } catch (e) {
-            console.log("[WC] error encountered while trying to search for tag", typeof (page), page.url(), tag, attribute, "\n\t", e);
+            console.log("[searchForURLSelector] error encountered while trying to search for tag", typeof (page), page.url(), tag, attribute, "\n\t", e);
         }
         return elements;
     }
@@ -194,6 +202,11 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * HTML에서 input, button, select, textarea 태그를 찾아서 입력 데이터를 추출한다.
+     * @param {*} node 
+     * @returns {number} requestsAdded
+     */
     async searchForInputs(node) {
         let requestsAdded = 0;
         let requestInfo = {}; //{action:"", method:"", elems:{"attributename":"value"}
@@ -252,6 +265,11 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * 태그의 이름과 값 속성을 수집하고 특정 형식(formdata)으로 변환한다.
+     * @param {*} tags 
+     * @returns {string}    formdata
+     */
     async searchTags(tags) {
         let formdata = "";
         for (let j = 0; j < tags.length; j++) {
@@ -263,18 +281,24 @@ export class RequestExplorer {
         return formdata;
     }
 
+    /**
+     * 
+     * @param {*} page 
+     * @param {*} parenturl 
+     * @returns 
+     */
     async addURLsFromPage(page, parenturl) {
         let requestsAdded = 0;
         try {
             // these are always GETs
             const anchorlinks = await this.searchForURLSelector(page, 'a', 'href');
             if (anchorlinks) {
-                //console.log("[WC] adding valid URLS from anchors ")
+                console.log("[addURLsFromPage] 앵커(a, href)로부터 유효한 URL을 추가합니다.")
                 requestsAdded += this.appData.addValidURLS(anchorlinks, parenturl, "OnPageAnchor");
             }
             const iframelinks = await this.searchForURLSelector(page, 'iframe', 'src');
             if (iframelinks) {
-                //console.log("[WC] adding valid URLS from iframe links")
+                console.log("[addURLsFromPage] iframe으로부터 유효한 URL을 추가합니다.")
                 requestsAdded += this.appData.addValidURLS(iframelinks, parenturl, "OnPageIFrame");
             }
         } catch (ex) {
@@ -283,23 +307,28 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * 페이지에서 form 데이터를 수집하고 
+     * @param {} page 
+     * @returns 
+     */
     async addFormData(page) {
         let requestsAdded = 0;
         try {
             const forms = await page.$$('form').catch(reason => {
-                console.log(`received error in page. ${reason} `);
+                console.log(`[addFormData] received error in page. ${reason} `);
             });
             if (isDefined(forms)) {
                 for (let i = 0; i < forms.length; i++) {
                     let faction = await this.getAttribute(forms[i], "action", "");
                     let fmethod = await this.getAttribute(forms[i], "method", "GET");
-                    console.log("[WC] second form ACTION=", faction, fmethod, " FROM url ", await page.url());
+                    console.log("[addFormData] second form ACTION=", faction, fmethod, " FROM url ", await page.url());
                     requestsAdded += await this.searchForInputs(forms[i]);
                 }
             }
 
         } catch (ex) {
-            console.log(`[WC] addFormData(p) Error ${ex}`);
+            console.log(`[addFormData] addFormData(p) Error ${ex}`);
             console.log(ex.stack);
         }
         return requestsAdded;
@@ -465,12 +494,14 @@ export class RequestExplorer {
                 }
                 let startingReqAdded = this.requestsAdded;
                 this.requestsAdded += await this.addDataFromBrowser(page, url);
+
+
                 if (cnt % 10 === 0) {
                     console.log(`[WC] W#${this.workernum} ${shortname} Count ${cnt} Round ${this.appData.currentURLRound} loopcnt ${processedCnt}, added ${this.requestsAdded} reqs : Inputs: ${roundResults.totalInputs}, (${roundResults.equaltoRequests}/${roundResults.totalRequests}) reqs left to process ${gremCounterStr}`);
                 }
                 let pinfo = this.browser.process();
                 if (isDefined(pinfo) && pinfo.killed) {
-                    console.log("Breaking out from test loop b/c BROWSER IS DEAD....")
+                    console.log("[exerciseTarget] Breaking out from test loop b/c BROWSER IS DEAD....")
                     break;
                 }
                 // if new requests added on last passs, then keep going
@@ -597,11 +628,12 @@ export class RequestExplorer {
         //     console.log(`loading gremscript from remote location ${this.gremlins_url}`);
         //     await page.addScriptTag({url: this.gremlins_url });
         // }
-        console.log(`loading gremscript from local `);
+        console.log(`[initpage] gremlins.min.js 스크립트를 로드합니다.`);
         await page.addScriptTag({ path: "gremlins.min.js" });
 
         this.isLoading = false;
 
+        console.log(`[initpage] ${url.href} 페이지의 스크린샷 저장됨.`);
         await page.screenshot({ path: this.base_appdir + '/screenshot/screenshot-pre.png', type: "png" });
 
         await page.keyboard.down('Escape');
@@ -617,7 +649,7 @@ export class RequestExplorer {
 
         //await this.submitForms(page);
 
-        console.log('[WC] adding hasClicker to elements')
+        console.log('[initpage] elements에 hasClicker 속성을 추가합니다.')
         const elementHandles = await page.$$('div,li,span,a,input,p,button');
         for (let ele of elementHandles) {
             if (!doingReload) {
@@ -632,7 +664,7 @@ export class RequestExplorer {
                 }
             }
         }
-        console.log(`About to add code exercisers to page, u=${this.usernameValue} pw=${this.passwordValue}`);
+        console.log(`[initpage] About to add code exercisers to page, u=${this.usernameValue} pw=${this.passwordValue}`);
 
         this.appData.addGremlinValue(this.usernameValue);
         this.appData.addGremlinValue(this.passwordValue);
@@ -653,7 +685,7 @@ export class RequestExplorer {
             return false;
         }
 
-        console.log("[WC] status = ", response.status(), response.statusText(), response.url());
+        console.log("[checkResponse] status = ", response.status(), response.statusText(), response.url());
 
         // 현재 response의 status가 200이 아닌 경우, status 업데이트
         if (this.appData.requestsFound[this.currentRequestKey].hasOwnProperty("response_status")) {
@@ -724,7 +756,7 @@ export class RequestExplorer {
         });
         //console.log("COOKIES", cookies_in);
         for (let cooky of cookies_in) {
-            console.log("[\x1b[38;5;5mWC\x1b[0m] Cookie: " + cooky["name"] + "=" + cooky["value"] + "");
+            console.log("[addCookiesToPage] Cookie 정보 : " + cooky["name"] + "=" + cooky["value"] + "");
             if (cooky["name"] === "token") {
                 page.setExtraHTTPHeaders({ Authorization: `Bearer ${cooky["value"]}` });
                 this.bearer = `Bearer ${cooky["value"]}`;
@@ -782,7 +814,7 @@ export class RequestExplorer {
         }
 
         let roundResults = this.getRoundResults();
-        console.log(`[WC] Round Results for round ${this.appData.currentURLRound} of ${MAX_NUM_ROUNDS}: Total Inputs :  ${roundResults.totalInputs} Total Requests: ${roundResults.equaltoRequests} of ${roundResults.totalRequests} processed so far`);
+        console.log(`[reportResults] Round Results for round ${this.appData.currentURLRound} of ${MAX_NUM_ROUNDS}: Total Inputs :  ${roundResults.totalInputs} Total Requests: ${roundResults.equaltoRequests} of ${roundResults.totalRequests} processed so far`);
 
     }
     setPageTimer() {

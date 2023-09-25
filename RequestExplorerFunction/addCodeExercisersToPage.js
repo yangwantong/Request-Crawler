@@ -3,6 +3,7 @@ export async function addCodeExercisersToPage(gremlinsHaveStarted, usernameValue
     //                         START Injected Exercise Code
     // ##############################################################################
 
+    console.log("[addCodeExercisersToPage] STARTING");
     await this.page.evaluate((gremlinsHaveStarted, usernameValue, passwordValue) => {
         window.gremlinsHaveFinished = false
         window.gremlinsHaveStarted = gremlinsHaveStarted;
@@ -725,7 +726,7 @@ export async function addCodeExercisersToPage(gremlinsHaveStarted, usernameValue
             };
 
             if (!gremlinsHaveStarted) {
-                console.log("[WC] UNLEASHING Horde for first time!!!");
+                console.log("[coolHorde] UNLEASHING Horde for first time!!!");
             }
             window.gremlinsHaveStarted = true;
             let ff = window.gremlins.species.formFiller({ elementMapTypes: wFormElementMapTypes, randomizer: noChance });
@@ -735,7 +736,7 @@ export async function addCodeExercisersToPage(gremlinsHaveStarted, usernameValue
             });
 
             for (let i = 0; i < 5; i++) {
-                console.log("[WC] Form Horde away!")
+                console.log("[coolHorde] Form Horde away!")
                 await gremlins.createHorde({
                     species: [ff],
                     mogwais: [gremlins.mogwais.alert(), gremlins.mogwais.gizmo()],

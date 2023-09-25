@@ -6,10 +6,9 @@ const ORANGE = "\x1b[38;5;202m";
 const ENDCOLOR = "\x1b[0m";
 
 export async function do_login(page) {
-    console.log("[*] do_login called");
     //curl -i -s -k -X $'POST' --data-binary $'ipamusername=admin&ipampassword=password&phpipamredirect=%2F' $'http://10.90.90.90:9797/app/login/login_check.php'
     var loginData = this.loginData;
-    console.log(`${ORANGE}[Login] Performing login ${loginData["form_url"]}${ENDCOLOR}`)
+    console.log(`${ORANGE}[do_login] 로그인 시도중 :  ${loginData["form_url"]}${ENDCOLOR}`)
     var gotourl = new URL(loginData["form_url"]);
     var data = loginData["post_data"];
     var method = loginData["method"];
@@ -24,7 +23,12 @@ export async function do_login(page) {
     }
 
     var self = this;
-    function interceptLoginRequest(req) {   // 로그인 네트워크 요청 가로채기 위한 이벤트 핸들러
+
+    /**
+     * 로그인시 Request를 인터셉터 하기 위한 함수
+     * @param {*} req 
+     */
+    function interceptLoginRequest(req) {
         // let pdata = {
         //     'method': method,
         //     'postData': data,
@@ -49,7 +53,7 @@ export async function do_login(page) {
     // 로그인 네트워크 요청 가로채기
     page.on('request', interceptLoginRequest);
 
-    console.log(`${ORANGE}[Login] REQUESTING URL${ENDCOLOR}`, gotourl.href);
+    console.log(`${ORANGE}[do_login] REQUESTING URL${ENDCOLOR}`, gotourl.href);
 
     const response = await page.goto(gotourl, { waitUntil: "networkidle2" });
     this.page.on('dialog', async dialog => {    // 로그인 dialog 무시
@@ -57,10 +61,10 @@ export async function do_login(page) {
         await dialog.dismiss();
     });
 
-    console.log(`${ORANGE}######## [Login] ACCOUNT INFORMATION ########${ENDCOLOR}`);
-    console.log(`${ORANGE}# USERNAME: ${loginData["usernameValue"]}${ENDCOLOR}`);
-    console.log(`${ORANGE}# PASSWORD: ${loginData["passwordValue"]}${ENDCOLOR}`);
-    console.log(`${ORANGE}#############################################${ENDCOLOR}`);
+    // console.log(`${ORANGE}######## [Login] ACCOUNT INFORMATION ########${ENDCOLOR}`);
+    // console.log(`${ORANGE}# USERNAME: ${loginData["usernameValue"]}${ENDCOLOR}`);
+    // console.log(`${ORANGE}# PASSWORD: ${loginData["passwordValue"]}${ENDCOLOR}`);
+    // console.log(`${ORANGE}#############################################${ENDCOLOR}`);
 
 
     self.usernameValue = loginData["usernameValue"];
@@ -146,7 +150,7 @@ export async function do_login(page) {
     let foundRequest = FoundRequest.requestParamFactory(loginPageLanding, "GET", "", {}, "targetChanged", self.appData.site_url.href);
     self.requestsAdded += self.appData.addInterestingRequest(foundRequest);
 
-    console.log(`${ORANGE}[Login] Login Successful${ENDCOLOR}`);    // 로그인 성공
+    console.log(`${ORANGE}[do_login] 로그인 성공${ENDCOLOR}`);    // 로그인 성공
 
     return cookies
 }
