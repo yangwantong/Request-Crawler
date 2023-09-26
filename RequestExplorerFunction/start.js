@@ -117,6 +117,7 @@ export async function start() {
     /**
      * Two phases, in the first, we record and save any relevant request information on local requests.
      * In the second, we attempt to determine if the request should be aborted.
+     * Request를 인터셉터 하기 위한 핸들러
      * @param req
      */
     function processRequest(req) {

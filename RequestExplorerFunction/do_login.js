@@ -8,6 +8,7 @@ const ENDCOLOR = "\x1b[0m";
 export async function do_login(page) {
     //curl -i -s -k -X $'POST' --data-binary $'ipamusername=admin&ipampassword=password&phpipamredirect=%2F' $'http://10.90.90.90:9797/app/login/login_check.php'
     var loginData = this.loginData;
+    console.log("\n############# STARTING LOGIN #############")
     console.log(`${ORANGE}[do_login] 로그인 시도중 :  ${loginData["form_url"]}${ENDCOLOR}`)
     var gotourl = new URL(loginData["form_url"]);
     var data = loginData["post_data"];
@@ -151,6 +152,6 @@ export async function do_login(page) {
     self.requestsAdded += self.appData.addInterestingRequest(foundRequest);
 
     console.log(`${ORANGE}[do_login] 로그인 성공${ENDCOLOR}`);    // 로그인 성공
-
+    console.log("#################################################\n")
     return cookies
 }

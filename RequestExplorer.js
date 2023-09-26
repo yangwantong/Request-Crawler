@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import process from 'process';
 
 import { FoundRequest } from './FoundRequest.js';
 import { do_login } from './RequestExplorerFunction/do_login.js';
 import { addCodeExercisersToPage } from './RequestExplorerFunction/addCodeExercisersToPage.js';
 import { start } from './RequestExplorerFunction/start.js';
+import { exerciseTarget } from './RequestExplorerFunction/exerciseTarget.js'
 
 const RED = "\x1b[38;5;1m";
 const GREEN = "\x1b[38;5;2m";
@@ -67,6 +67,7 @@ export class RequestExplorer {
         this.do_login = do_login.bind(this);
         this.addCodeExercisersToPage = addCodeExercisersToPage.bind(this);
         this.start = start.bind(this);
+        this.exerciseTarget = exerciseTarget.bind(this);
     }
 
     /**
@@ -99,6 +100,10 @@ export class RequestExplorer {
         return results;
     }
 
+    /**
+     * URL이 "chrome-error"로 시작하는 경우 페이지를 뒤로 이동시킨다.
+     * @param {*} page 
+     */
     async resetURLBack(page) {
         let cururl = await page.url();
         // TODO: 임시 주석처리
@@ -106,21 +111,20 @@ export class RequestExplorer {
         if (cururl.startsWith("chrome-error")) {
             await page.goBack();
             let backedurl = await page.url();
-            console.log(`[WC] Performed goBack to ${backedurl} after chrome - error`);
+            console.log(`[resetURLBack] Performed goBack to ${backedurl} after chrome - error`);
         }
     }
 
     /**
-     * 
-     * @param {*} page 
-     * @param {*} tag 
-     * @param {*} attribute 
+     * HTML에서 <a>, <iframe> 태그로부터 특정 속성 값을 추출한다.
+     * @param {*} page 현재 웹 페이지를 나타내는 puppeteer의 핸들
+     * @param {*} tag 추출하려는 HTML 태그의 종류
+     * @param {*} attribute 추출하려는 속성(attribute)의 이름
      * @param {*} completed 
-     * @returns 
+     * @returns {Array} 추출한 속성 값들의 배열
      */
     async searchForURLSelector(page, tag, attribute, completed = {}) {
         let elements = [];
-        console.log("[searchForURLSelector] START : " + tag + ", " + attribute);
         try {
             const links = await page.$$(tag);
             for (var i = 0; i < links.length; i++) {
@@ -134,10 +138,10 @@ export class RequestExplorer {
                     try {
                         valueHandle = await links[i].getProperty(attribute);
                     } catch (ex) {
-                        console.log(`[searchForURLSelector]\x1b[38; 5; 197m link #${i} /${links.length} error encountered while trying to getProperty`, typeof (page), page.url(), tag, attribute, links[i], "\n", ex, "\x1b[0m");
+                        // console.log(`[searchForURLSelector]\x1b[38; 5; 197m link #${i} /${links.length} error encountered while trying to getProperty`, typeof (page), page.url(), tag, attribute, links[i], "\n", ex, "\x1b[0m");
+                        console.log("[searchForURLSelector] error encountered while trying to getProperty", typeof (page), page.url(), tag, attribute, links[i], "\n");
                         try {
-                            console.log("[searchForURLSelector] Trying again!!");
-                            // console.log("[searchForURLSelector] Trying again", links[i]);
+                            console.log("[searchForURLSelector] Trying again", links[i]);
                             valueHandle = await links[i].getProperty(attribute);
                         } catch (eex) {
                             continue;
@@ -158,6 +162,13 @@ export class RequestExplorer {
         return elements;
     }
 
+    /**
+     * HTML에서 지정된 속성 값을 가져온다.
+     * @param {*} node HTML 요소를 나타내는 puppeteer의 핸들
+     * @param {*} attribute 가져올 속성의 이름
+     * @param {*} defaultval 해당 속성이 존재하지 않을 경우 기본적으로 반환할 값
+     * @returns 
+     */
     async getAttribute(node, attribute, defaultval = "") {
         let valueHandle = await node.getProperty(attribute);
         let val = await valueHandle.jsonValue();
@@ -208,6 +219,7 @@ export class RequestExplorer {
      * @returns {number} requestsAdded
      */
     async searchForInputs(node) {
+        console.log("[*] called searchForInputs")
         let requestsAdded = 0;
         let requestInfo = {}; //{action:"", method:"", elems:{"attributename":"value"}
         let nodeaction = await this.getAttribute(node, "action");
@@ -282,10 +294,10 @@ export class RequestExplorer {
     }
 
     /**
-     * 
+     * a, iframe 태그에서 유효한 URL을 추출한다.
      * @param {*} page 
      * @param {*} parenturl 
-     * @returns 
+     * @returns {number}
      */
     async addURLsFromPage(page, parenturl) {
         let requestsAdded = 0;
@@ -293,24 +305,24 @@ export class RequestExplorer {
             // these are always GETs
             const anchorlinks = await this.searchForURLSelector(page, 'a', 'href');
             if (anchorlinks) {
-                console.log("[addURLsFromPage] 앵커(a, href)로부터 유효한 URL을 추가합니다.")
+                // console.log("[addURLsFromPage] 앵커(a, href)로부터 유효한 URL을 추가합니다.")
                 requestsAdded += this.appData.addValidURLS(anchorlinks, parenturl, "OnPageAnchor");
             }
             const iframelinks = await this.searchForURLSelector(page, 'iframe', 'src');
             if (iframelinks) {
-                console.log("[addURLsFromPage] iframe으로부터 유효한 URL을 추가합니다.")
+                // console.log("[addURLsFromPage] iframe으로부터 유효한 URL을 추가합니다.")
                 requestsAdded += this.appData.addValidURLS(iframelinks, parenturl, "OnPageIFrame");
             }
         } catch (ex) {
-            console.log(`[WC] Error in addURLSFromPage(): ${ex}`)
+            console.log(`[addURLsFromPage] Error in addURLSFromPage(): ${ex}`)
         }
         return requestsAdded;
     }
 
     /**
-     * 페이지에서 form 데이터를 수집하고 
+     * form element에서 input, button, select, textarea 태그를 찾아서 입력 데이터를 추출한다.
      * @param {} page 
-     * @returns 
+     * @returns {number}
      */
     async addFormData(page) {
         let requestsAdded = 0;
@@ -334,6 +346,12 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * 웹 페이지와 하위 프레임에서 데이터 수집 및 URL 추출을 수행한다.
+     * @param {*} page 
+     * @param {*} parenturl 
+     * @returns 
+     */
     async addDataFromBrowser(page, parenturl) {
         //        console.log("Starting formdatafrompage");
         let requestsAdded = 0;
@@ -356,259 +374,6 @@ export class RequestExplorer {
         //const bodynode = await page.$('html');
         //requestsAdded += await this.searchForInputs(bodynode);
         return requestsAdded;
-    }
-
-    async exerciseTarget(page) {
-        console.log("[*] exerciseTarget called")
-        this.requestsAdded = 0;
-        let errorThrown = false;
-        let clearURL = false;
-
-        this.setPageTimer();
-
-        if (this.url === "") {
-
-            var urlstr = `/login.php`
-            if (this.loginData !== undefined && 'form_url' in this.loginData) {
-                clearURL = true;
-                urlstr = await page.url();
-                console.log("page.url = ", urlstr);
-            } else {
-                console.log("pre chosen url string = ", urlstr);
-            }
-
-            let foundRequest = FoundRequest.requestParamFactory(urlstr, "GET", "", {}, "LoginPage", this.appData.site_url.href)
-
-            this.url = foundRequest.getURL();
-
-            this.currentRequestKey = foundRequest.getRequestKey();
-            this.method = foundRequest.method();
-
-            if (this.appData.containsEquivURL(foundRequest)) {
-                // do nothing
-            } else {
-                foundRequest.from = "startup";
-                let addresult = this.appData.addRequest(foundRequest);
-                if (addresult) {
-                    this.appData.requestsFound[this.currentRequestKey]["processed"] = 1;
-                } else {
-                    console.log(this.appData.requestsFound);
-                    console.log(this.currentRequestKey);
-                    process.exit(3);
-                }
-            }
-            //console.log("CREATING NEW PAGE for new pagedness");
-            //this.page = await this.browser.newPage();
-        }
-
-        let url = this.url;
-        let shortname = "";
-        //console.log("\x1b[38;5;5mexerciseTarget, URL = ", url.href, "\x1b[0m");
-        if (url.href.indexOf("/") > -1) {
-            shortname = path.basename(url.pathname);
-        }
-        let options = { timeout: 20000, waituntil: "networkidle2" };
-        //let options = {timeout: 10000, waituntil: "domcontentloaded"};
-        let madeConnection = false;
-        page.on('dialog', async dialog => {
-            console.log(`[WC] Dismissing Message: ${dialog.message()}`);
-            await dialog.dismiss();
-        });
-        // making 3 attempts to load page
-        for (let i = 0; i < 3; i++) {
-            try {
-                let response = "";
-                this.isLoading = true;
-
-                if (clearURL) {
-                    response = await page.reload(options);
-                    let turl = await page.url();
-                    console.log("Reloading page ", turl);
-                } else {
-                    let request_page = url.origin + url.pathname
-                    console.log("GOING TO requested page =", request_page);
-                    //response =
-                    //let p1 = page.waitForResponse(url.origin + url.pathname);
-                    //let p1 = page.waitForResponse(request => {console.log(`INSIDE request_page= ${request_page} ==> ${request.url()}`);return request.url().startsWith(url.origin);}, {timeout:10000});
-
-                    response = await page.goto(url.href, options);
-
-                    //response = await p1
-                    //console.log("DONE WAITING FOR RESPONSE!!!!! ", url)
-                    //console.log(test);
-                    //response = await page.waitForResponse(() => true, {timeout:10000});
-                    // //response = await page.waitForResponse(request => {console.log(`INSIDE requst.url() = ${request.url()}`);return request.url() === url.href;}, {timeout:10000})
-                }
-                // TODO:  a bug seems to exist when a hash is used in the url, the response will be returned as null from goto
-                // This is attempt 1 to resolve, by skipping response actions when resoponse is null
-                // This problem appears to be tied to setIncerpetRequest(true)
-                // https://github.com/puppeteer/puppeteer/issues/5492
-
-                //response = await page.goto(url.href, options);
-                //attempting to clear an autoloaded alert box
-
-                page.on('dialog', async dialog => {
-                    console.log(`[WC] Dismissing Message: ${dialog.message()}`);
-                    await dialog.dismiss();
-                });
-
-                let response_good = await this.checkResponse(response, page.url());
-
-                if (response_good) {
-                    madeConnection = await this.initpage(page, url);
-                }
-
-                break; // connection successful
-            } catch (e) {
-
-                console.log(`Error: Browser cannot connect to '${url.href}' RETRYING`);
-                console.log(e.stack);
-            }
-        }
-        if (!madeConnection) {
-            console.log(`Error: LAST ATTEMPT, giving up, browser cannot connect to '${url.href}'`);
-            return;
-        }
-
-        let lastGT = 0, lastGTCnt = 0, gremCounterStr = "";
-        try {
-            //console.log("Performing timeout and element search");
-            let errorLoopcnt = 0;
-            for (var cnt = 0; cnt < this.timeoutLoops; cnt++) {
-                this.setPageTimer();
-                if (!this.browser_up) {
-                    console.log(`[WC] Browser is not available, exiting timeout loop`);
-                    break;
-                }
-                console.log(`[WC] Starting timeout Loop #${cnt + 1} `);
-                let roundResults = this.getRoundResults();
-                if (page.url().indexOf("/") > -1) {
-                    shortname = path.basename(page.url());
-                }
-                let processedCnt = 0;
-                if (this.currentRequestKey in this.appData.requestsFound) {
-                    processedCnt = this.appData.requestsFound[this.currentRequestKey]["processed"];
-                }
-                if (typeof this.requestsAdded === "string") {
-                    this.requestsAdded = parseInt(this.requestsAdded);
-                }
-                let startingReqAdded = this.requestsAdded;
-                this.requestsAdded += await this.addDataFromBrowser(page, url);
-
-
-                if (cnt % 10 === 0) {
-                    console.log(`[WC] W#${this.workernum} ${shortname} Count ${cnt} Round ${this.appData.currentURLRound} loopcnt ${processedCnt}, added ${this.requestsAdded} reqs : Inputs: ${roundResults.totalInputs}, (${roundResults.equaltoRequests}/${roundResults.totalRequests}) reqs left to process ${gremCounterStr}`);
-                }
-                let pinfo = this.browser.process();
-                if (isDefined(pinfo) && pinfo.killed) {
-                    console.log("[exerciseTarget] Breaking out from test loop b/c BROWSER IS DEAD....")
-                    break;
-                }
-                // if new requests added on last passs, then keep going
-                if (startingReqAdded < this.requestsAdded) {
-                    cnt = (cnt > 3) ? cnt - 3 : 0;
-                }
-
-                const now_url = await page.url();
-                const this_url = this.url.href
-                if (this.reinitPage) {
-                    madeConnection = await this.initpage(page, url, true);
-                    this.reinitPage = false;
-                }
-                if (now_url !== this_url) {
-                    //console.log(`[WC] Attempting to reload target page b/c browser changed urls ${this_url !== now_url} '${this.url}' != '${now_url}'`)
-                    this.isLoading = true;
-                    let response = "";
-                    try {
-                        response = await page.goto(this.url, options);
-                    } catch (e2) {
-                        console.log(`trying ${this.url} again`)
-                        response = await page.goto(this.url, options);
-                    }
-
-                    let response_good = await this.checkResponse(response, page.url());
-
-                    if (response_good) {
-                        madeConnection = await this.initpage(page, url, true);
-                    }
-                    this.isLoading = false;
-                }
-                await page.waitForTimeout(this.timeoutValue * 1000);
-                let gremlinsHaveFinished = false;
-                let gremlinsHaveStarted = false;
-                let gremlinsTime = 0;
-                try {
-                    gremlinsHaveFinished = await page.evaluate(() => { return window.gremlinsHaveFinished; });
-                    gremlinsHaveStarted = await page.evaluate(() => { return window.gremlinsHaveStarted; });
-                    // TODO: 임시 주석처리
-                    // console.log(`FIRST: gremlinsHaveStarted = ${gremlinsHaveStarted} gremlinsHaveFinished = ${gremlinsHaveFinished} browser_up=${this.browser_up} gremlinsTime=${gremlinsTime}`);
-                    // the idea, is that we will keep going as long as gremlinsTime gets reset before 30 seconds is up
-                    while (!gremlinsHaveFinished && this.browser_up && gremlinsTime < 30) {
-                        let currequestsAdded = this.requestsAdded;
-                        // TODO: 임시 주석처리
-                        // console.log(`LOOP: gremlinsHaveStarted = ${gremlinsHaveStarted} gremlinsHaveFinished = ${gremlinsHaveFinished} browser_up=${this.browser_up}  gremlinsTime=${gremlinsTime}`);
-                        await (sleepg(3000));
-                        gremlinsHaveFinished = await page.evaluate(() => { return window.gremlinsHaveFinished; });
-                        gremlinsHaveStarted = await page.evaluate(() => { return window.gremlinsHaveStarted; });
-                        if (typeof (gremlinsHaveFinished) === "undefined" || gremlinsHaveFinished === null) {
-                            console.log("[WC] attempting to reinet client scripts");
-                            await this.initpage(page, url, true);
-                        }
-                        if (gremlinsHaveStarted) {
-                            gremlinsTime += 3;
-                        }
-                        if (currequestsAdded !== this.requestsAdded) {
-                            this.setPageTimer();
-                            gremlinsTime = 0;
-                            console.log("[WC] resetting timers b/c new request found")
-                        }
-                    }
-                } catch (ex) {
-                    console.log("Error occurred while checking gremlins, restarting \nError Info: ", ex);
-                    errorLoopcnt++;
-                    if (errorLoopcnt < 10) {
-                        continue;
-                    } else {
-                        console.log("\x1b[38;5;1mToo many errors encountered, breaking out of test loop.\x1b[0m");
-                        break;
-                    }
-                }
-                console.log(`DONE with waiting for gremlins:: gremlinsHaveStarted = ${gremlinsHaveStarted} gremlinsHaveFinished = ${gremlinsHaveFinished} browser_up=${this.browser_up}  gremlinsTime=${gremlinsTime}`);
-                // eval for iframes, a, forms
-                if (this.workernum === 0 && cnt % 3 === 1) {
-                    //page.screenshot({path: `/p/webcam/screenshot-${this.workernum}-${cnt}.png`, type:"png"}).catch(function(error){console.log("no save")});
-                }
-                //page.screenshot({path: `/p/tmp/screenshot-${this.workernum}-${cnt}.png`, type:"png"}).catch(function(error){console.log("no save")});
-                //console.log("After content scan =>",cnt );
-
-                if (this.hasGremlinResults()) {
-                    if (lastGT === this.gremCounter["grandTotal"]) {
-                        lastGTCnt++;
-                    } else {
-                        lastGTCnt = 0;
-                    }
-                    gremCounterStr = `Grems total = ${this.gremCounter["grandTotal"]}`;
-                    lastGT = this.gremCounter["grandTotal"];
-                    if (lastGTCnt > 3) {
-                        console.log("Grand Total the same too many times, exiting.");
-                        break
-                    }
-                }
-            }
-        } catch (e) {
-            console.log(`Error: Browser cannot connect to ${url.href}`);
-            console.log(e.stack);
-            errorThrown = true;
-
-        }
-        // Will reset :
-        //   If added more than 10 requests (whether error or not), this catches the situation when
-        //     we added so many requests it caused a timeout.
-        //   OR IF only a few urls were added but no error was thrown
-        if (this.requestsAdded > 10 || (errorThrown === false && this.requestsAdded > 0)) {
-            this.appData.resetRequestsAttempts(this.currentRequestKey);
-        }
-
     }
 
     async initpage(page, url, doingReload = false) {
@@ -791,6 +556,7 @@ export class RequestExplorer {
         }
 
     }
+
     getRoundResults() {
         let total = 0, above = 0, below = 0, equalto = 0;
         for (const [key, val] of Object.entries(this.appData.requestsFound)) {
@@ -800,6 +566,7 @@ export class RequestExplorer {
         }
         return { totalInputs: this.appData.numInputsFound(), totalRequests: total, equaltoRequests: equalto, aboveRequests: above }
     }
+
     reportResults() {
         if (Object.entries(this.shownMessages).length > 0) {
             console.log("ERRORS:");
@@ -817,10 +584,14 @@ export class RequestExplorer {
         console.log(`[reportResults] Round Results for round ${this.appData.currentURLRound} of ${MAX_NUM_ROUNDS}: Total Inputs :  ${roundResults.totalInputs} Total Requests: ${roundResults.equaltoRequests} of ${roundResults.totalRequests} processed so far`);
 
     }
+
+    /**
+     * 페이지 타임아웃을 설정하고, 브라우저가 일정 시간 동안 반응이 없으면 브라우저를 종료
+     */
     setPageTimer() {
         var self = this;
         if (this.pagetimeout) {
-            console.log("[setPageTimer] Page timer를 초기화힙니다.");
+            console.log("[setPageTimer] 현재 페이지의 time out를 초기화합니다.");
             clearTimeout(this.pagetimeout);
         }
         this.pagetimeout = setTimeout(function () {
@@ -832,7 +603,7 @@ export class RequestExplorer {
                 console.log(`${RED}[setPageTimer] 브라우저 종료 중 오류가 발생했습니다.${ENDCOLOR}`)
                 console.log(err);
             }
-        }, this.actionLoopTimeout * 1000 + 60000); //TODO: 6000을 임시로 60,000으로 수정함
+        }, this.actionLoopTimeout * 1000 + 6000);
     }
 }
 
@@ -871,6 +642,11 @@ function isInteractivePage(response, responseText) {
 
 }
 
+/**
+ * 값이 정의되어 있는지 확인
+ * @param {*} val 
+ * @returns {boolean} undefined 또는 null이면 false, 그렇지 않으면 true 반환
+ */
 function isDefined(val) {
     return !(typeof val === 'undefined' || val === null);
 }

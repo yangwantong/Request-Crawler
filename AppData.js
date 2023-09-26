@@ -539,7 +539,7 @@ export class AppData {
         while (this.currentURLRound <= MAX_NUM_ROUNDS) {
             let randomKeys = Object.keys(this.requestsFound);
             //this.shuffle(randomKeys);
-            console.log(`${BLUE}[getNextRequest] Shown reandomKeys${ENDCOLOR}`)
+            console.log(`${BLUE}[getNextRequest] 랜덤 키 출력${ENDCOLOR}`)
             console.log(randomKeys);
 
             let cnt = 0;
