@@ -1,7 +1,7 @@
 import path from 'path';
 import process from 'process';
 
-import { FoundRequest } from './FoundRequest.js';
+import { FoundRequest } from '../FoundRequest.js';
 
 export async function exerciseTarget(page) {
     console.log("[*] exerciseTarget called")
