@@ -14,8 +14,11 @@
     "execute": "main.js"
   },
   "dependencies": {
-    "fuzzyset": "^1.0.6",
-    "puppeteer": "^12.0.1",
-    "url-exist": "^3.0.0"
+    "fuzzyset": "^1.0.7",
+    "puppeteer": "^21.3.8",
+    "url-exist": "^3.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.51.0"
   }
 }
