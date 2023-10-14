@@ -6,45 +6,49 @@ import { GREEN, BLUE, ENDCOLOR } from './common/utils.js'
 import { AppData } from './helpers/AppData.js'
 import { RequestExplorer } from "./helpers/RequestExplorer.js"
 
-const BASE_APPDIR = process.cwd();
+const BASE_DIRECTORY = process.cwd();
 const startExploration = async (appData) => {
     let nextRequest = appData.getNextRequest()
 
-    console.log(`\n\n${BLUE}[+] Current URL Round: ${ENDCOLOR}` + appData.getCurrentURLRound())
-    console.log('======================Request Information======================')
-    console.log(appData.getRequestInfo())
-    console.log('===============================================================')
+    // console.log(`\n\n${BLUE}[+] Current URL Round: ${ENDCOLOR}` + appData.getCurrentURLRound())
 
     while(nextRequest) {
-        let re = new RequestExplorer(appData, BASE_APPDIR, nextRequest)
-        await re.start()
+        console.log('\n\n======================Founded Request List======================')
+        console.log(appData.getRequestInfo())
+        console.log('===============================================================')
 
-        console.log(`${BLUE}[+] Completed Crawling URL :  ${ENDCOLOR}` + appData.getCurrentRequestURL() + '\n\n')
+        let re = new RequestExplorer(appData, BASE_DIRECTORY, nextRequest)
+        console.log(`${BLUE}[+] Current Crawling URL : ${ENDCOLOR}` + appData.getCurrentRequestURL())
+        await re.start()
+        // console.log(`${BLUE}[+] Completed Crawling URL :  ${ENDCOLOR}` + appData.getCurrentRequestURL() + '\n\n')
+        console.log(`${BLUE}[+] Collected Unique URL : ${ENDCOLOR}` + appData.getCollectedURLCount() + '\n\n')
         nextRequest = appData.getNextRequest()
     }
 }
 
 if (process.argv.length > 2) {
-    let BASE_SITE = process.argv[2]
+    let BASE_SITE = 'http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager'
     let headless = 'new'
 
+    console.log('======================Crawling Options======================')
     console.log(`${GREEN}[+] Target Site: ${ENDCOLOR}` + BASE_SITE)
     console.log(`${GREEN}[+] Headless: ${ENDCOLOR}` + headless)
+    console.log('===============================================================\n\n')
 
     if (process.argv[4] === '--no-headless') {
         // TODO: headless와 관련된 설정은 아직 구현되지 않음
         // headless = false
     }
 
-    if (!fs.existsSync(path.join(BASE_APPDIR, "output"))) {
-        fs.mkdirSync(path.join(BASE_APPDIR, "output"))
+    if (!fs.existsSync(path.join(BASE_DIRECTORY, "output"))) {
+        fs.mkdirSync(path.join(BASE_DIRECTORY, "output"))
     }
 
-    if (!fs.existsSync(path.join(BASE_APPDIR, "output", "screenshots"))) {
-        fs.mkdirSync(path.join(BASE_APPDIR, "output", "screenshots"))
+    if (!fs.existsSync(path.join(BASE_DIRECTORY, "output", "screenshots"))) {
+        fs.mkdirSync(path.join(BASE_DIRECTORY, "output", "screenshots"))
     }
 
-    startExploration(new AppData(BASE_APPDIR, BASE_SITE, headless))
+    await startExploration(new AppData(BASE_DIRECTORY, BASE_SITE, headless))
 
 } else {
     console.log('Usage: node main.js <target_site> [--no-headless]')

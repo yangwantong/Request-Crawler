@@ -1,6 +1,12 @@
 import { isDefined } from '../common/utils.js'
 
 export class FoundRequest {
+    static requestObjectFactory(request, site_url="http://localhost/"){
+        return new FoundRequest(request.url(), request.method(), request.postData(), request.headers(), request.resourceType(), site_url);
+    }
+    static requestParamFactory(url="", method="GET", postData="", headers={}, resourceType="UNK TYPE",site_url="http://localhost/"){
+        return new FoundRequest(url, method, postData, headers, resourceType, site_url);
+    }
     constructor(
         urlstr = "",
         method = "GET",

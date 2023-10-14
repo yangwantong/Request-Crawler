@@ -23,10 +23,10 @@ export class AppData {
     minFuzzyScore = 0.80;
     gremlinValues = new Set(["Witcher", "127.0.0.1", "W'tcher", "W%27tcher", "2"]);
 
-    constructor(base_appdir, base_site, headless) {
+    constructor(base_directory, base_site, headless) {
         this.site_url = new URL(base_site);
         this.headless = headless;
-        this.base_appdir = base_appdir;
+        this.base_directory = base_directory;
         const nets = networkInterfaces();
         this.ips = ["127.0.0.1", "localhost", this.site_url.host];
         for (const name of Object.keys(nets)) {
@@ -59,8 +59,27 @@ export class AppData {
         return this.site_url;
     }
 
+    getNextRequestId() {
+        return Object.keys(this.requestsFound).length + 1
+    }
+    getRequestCount(){
+        return Object.keys(this.requestsFound).length
+    }
+
+    getCollectedURLCount() {
+        return this.collectedURL;
+    }
+
+    getInputSetSize() {
+        return this.inputSet.size;
+    }
+
+    addGremlinValue(val){
+        this.gremlinValues.add(val);
+    }
+
     loadReqsFromJSON() {
-        let json_fn = path.join(this.base_appdir, "output/request_data.json");
+        let json_fn = path.join(this.base_directory, "output/request_data.json");
 
         if (fs.existsSync(json_fn)) {
             console.log(`${BLUE}[!] Founded request_data.json${ENDCOLOR}`);
@@ -148,27 +167,45 @@ export class AppData {
         }
 
         let jdata = JSON.stringify({ requestsFound: this.requestsFound, inputSet: Array.from(this.inputSet) });
-        fs.writeFileSync(path.join(this.base_appdir, "output/request_data.json"), jdata);
+        fs.writeFileSync(path.join(this.base_directory, "output/request_data.json"), jdata);
     }
 
     getRequestInfo() {
         let outstr = "";
         for (let value of Object.values(this.requestsFound)) {
-            outstr += `${CYAN}[${value._method}] ${value._urlstr}${ENDCOLOR}, Attempts : ${CYAN}${value.attempts}${ENDCOLOR}`;
+            if (value._method === "POST") {
+                outstr += `${CYAN}[${value._method}] ${value._urlstr}${ENDCOLOR}, Attempts : ${CYAN}${value.attempts}${ENDCOLOR}, PostData : ${CYAN}${value._postData}${ENDCOLOR}\n`;
+                continue;
+            }
+            outstr += `${CYAN}[${value._method}] ${value._urlstr}${ENDCOLOR}, Attempts : ${CYAN}${value.attempts}${ENDCOLOR}\n`;
         }
         return outstr;
     }
 
-    getNextRequestId() {
-        return Object.keys(this.requestsFound).length + 1
-    }
-    getRequestCount(){
-        return Object.keys(this.requestsFound).length
-    }
-
     addRequest(fRequest) {
         try {
-            let reqkey = fRequest.getRequestKey();
+            let reqkey
+            try {
+                reqkey = fRequest.getRequestKey();
+            } catch {
+                console.error(`${RED}[-] reqkey ERROR. SKIPPING : ${ENDCOLOR}` + reqkey);
+                return false
+            }
+
+            let allowURL = [
+                "http://witcher.kro.kr/wp-admin/admin-ajax.php",
+                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager",
+                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_projects",
+                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_tasks",
+                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_files",
+                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_categories",
+            ]
+
+            // fRequest.getUrlstr()가 allowURL에 포함되어 있지 않으면 return false
+            if (!allowURL.includes(fRequest.getUrlstr())) {
+                console.log(`${RED}[-] NOT ALLOWED URL. SKIPPING : ${ENDCOLOR}` + fRequest.getUrlstr())
+                return false;
+            }
 
             if (reqkey in this.requestsFound) {
                 return false;
@@ -181,14 +218,20 @@ export class AppData {
                 return true;
             }
         } catch (err) {
-            console.log(`${RED}[-] An error occurred while collecting URL : ${ENDCOLOR}` + err);
+            console.error(`${RED}[-] An error occurred while collecting URL : ${ENDCOLOR}` + err);
             return false;
         }
     }
 
     addInterestingRequest(foundRequest){
         let requestsAdded = 0 ;
-        let tempURL = new URL(foundRequest._urlstr);
+        let tempURL = null
+        try {
+            tempURL = new URL(foundRequest._urlstr);
+        } catch(err) {
+            console.log("ERROR : tempURL is INVALID")
+            return requestsAdded;
+        }
 
         if (tempURL.pathname.match(/\.(css|jpg|gif|png|js|ico|woff2)$/)) {
             // console.log(`[*] Skipping ` + tempURL);    // TODO: 개발용으로 추가한 부분
@@ -200,5 +243,33 @@ export class AppData {
             requestsAdded++;
         }
         return requestsAdded;
+    }
+
+    addQueryParam(key, value) {
+        let keycnt = 0;
+
+        this.inputSet.forEach(function (setkey) {
+            if (setkey.startsWith(key + "=")) {
+                keycnt++;
+            }
+        });
+        if (keycnt < 4) {
+            if (value.search(/[Q2][Q2]+/) > -1) {
+                value = value.substring(0, 1);
+            }
+            if (this.inputSet.has(`${key}=`) && value.length > 0) {
+                this.inputSet.delete(`${key}=`);
+            }
+            if (value.length === 0 && keycnt === 0 || value.length > 0) {
+                this.inputSet.add(`${key}=${value}`);
+            }
+        }
+
+    }
+
+    resetRequestsAttempts(key){
+        console.log(`Trying to reset for ${key}`);
+        this.requestsFound[key]["attempts"] = this.currentURLRound - 1;
+        console.log(`RESET attempts to ${this.requestsFound[key]["attempts"]} for ${key}`)
     }
 }

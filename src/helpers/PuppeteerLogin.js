@@ -1,5 +1,5 @@
 import {FoundRequest} from "./FoundRequest.js";
-import {ENDCOLOR, GREEN, ORANGE, RED} from "../common/utils.js";
+import {ENDCOLOR, ORANGE, RED} from "../common/utils.js";
 
 /**
  * 로그인 정보가 있을 때, 웹 사이트에 로그인을 수행하는 함수
@@ -8,21 +8,12 @@ import {ENDCOLOR, GREEN, ORANGE, RED} from "../common/utils.js";
  * @param page : Page
  * @param requestsAdded : int
  * @param loginData : JSON
- * @param base_appdir : string
+ * @param base_directory : string
  * @returns {*} : cookies
  */
-export const doLogin = async (url, appData, page, requestsAdded, loginData, base_appdir) => {
+export const doLogin = async (url, appData, page, requestsAdded, loginData, base_directory) => {
     let loginUrl = new URL(loginData["login_url"]);
-    // let data = loginData["post_data"];
-    // let method = loginData["method"];
-    //
-    // if (url === ""){
-    //     let foundRequest = new FoundRequest(loginData["login_url"], method, data, {}, "LoginPage", appData.site_url.href);
-    //     foundRequest.setFrom("LoginPage")
-    //     appData.addRequest(foundRequest);
-    // }
-
-    const interceptLoginRequest = (req) => {
+    const interceptLoginRequest = async (req) => {
         if (req.url().startsWith(`${appData.site_url.href}`)){
             let foundRequest = new FoundRequest(req.url(), req.method(), req.postData(), req.headers(), req.resourceType(), appData.site_url.href);
             foundRequest.setFrom("LoginInterceptedRequest");
@@ -47,11 +38,6 @@ export const doLogin = async (url, appData, page, requestsAdded, loginData, base
 
     console.log(`${ORANGE}[LOGIN] Try Login...${ENDCOLOR}`)
 
-    // console.log(`\n${ORANGE}[LOGIN] 로그인 데이터가 발견되었습니다. 아래 정보로 로그인을 시도합니다. ${ENDCOLOR}`)
-    // console.log(`${ORANGE}[LOGIN] Login URL: ${ENDCOLOR}` + loginData["login_url"])
-    // console.log(`${ORANGE}[LOGIN] Username: ${ENDCOLOR}` + loginData["usernameValue"])
-    // console.log(`${ORANGE}[LOGIN] Password: ${ENDCOLOR}` + loginData["passwordValue"] + '\n')
-
     /**
      * Puppeteer를 이용하여 로그인을 수행하는 부분
      */
@@ -65,7 +51,7 @@ export const doLogin = async (url, appData, page, requestsAdded, loginData, base
         await page.focus(loginData["passwordSelector"]);
         await page.keyboard.type(loginData["passwordValue"], {delay: 100});
 
-        await page.screenshot({ path : base_appdir + "/output/screenshots/pre-login.png", type: 'png' });
+        await page.screenshot({ path : base_directory + "/output/screenshots/pre-login.png" });
 
         let submitType = loginData["submitType"].toLowerCase();
 
@@ -101,7 +87,7 @@ export const doLogin = async (url, appData, page, requestsAdded, loginData, base
     let foundRequest = new FoundRequest(loginPageLanding, "GET", "", {}, "targetChanged", appData.site_url.href);
     requestsAdded += appData.addInterestingRequest(foundRequest);
 
-    await page.screenshot({ path : base_appdir + "/output/screenshots/after-login.png", type: 'png' });
+    await page.screenshot({ path : base_directory + "/output/screenshots/after-login.png" });
 
     console.log(`${ORANGE}[LOGIN] Login Success.${ENDCOLOR}`)
 

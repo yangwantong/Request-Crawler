@@ -1,0 +1,16 @@
+{
+  "request_crawler": {
+    "perform_login" : "Y",
+    "login_url": "http://witcher.kro.kr/wp-login.php",
+    "usernameSelector": "#user_login",
+    "usernameValue": "test",
+    "passwordSelector": "#user_pass",
+    "passwordValue": "test",
+    "submitType": "enter",
+    "positiveLoginMessage": "프로필",
+    "method": "POST",
+    "form_submit_selector": "",
+    "ignoreValues": [],
+    "urlUniqueIfValueUnique": []
+  }
+}
