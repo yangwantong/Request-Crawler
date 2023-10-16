@@ -1,6 +1,6 @@
 {
   "request_crawler": {
-    "perform_login" : "Y",
+    "perform_login" : "N",
     "login_url": "http://witcher.kro.kr/wp-login.php",
     "usernameSelector": "#user_login",
     "usernameValue": "test",
@@ -11,6 +11,14 @@
     "method": "POST",
     "form_submit_selector": "",
     "ignoreValues": [],
-    "urlUniqueIfValueUnique": []
+    "urlUniqueIfValueUnique": [],
+    "endpoints:": [
+      "http://witcher.kro.kr:4280/vulnerabilities/exec/",
+      "http://witcher.kro.kr:4280/vulnerabilities/sqli/",
+      "http://witcher.kro.kr:4280/vulnerabilities/sqli_blind/",
+      "http://witcher.kro.kr:4280/vulnerabilities/xss_d/",
+      "http://witcher.kro.kr:4280/vulnerabilities/xss_r/",
+      "http://witcher.kro.kr:4280/vulnerabilities/xss_s/"
+    ]
   }
 }

@@ -27,7 +27,7 @@ const startExploration = async (appData) => {
 }
 
 if (process.argv.length > 2) {
-    let BASE_SITE = 'http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager'
+    let BASE_SITE = process.argv[2]
     let headless = 'new'
 
     console.log('======================Crawling Options======================')

@@ -22,6 +22,7 @@ export class AppData {
     urlUniqueIfValueUnique = new Set();
     minFuzzyScore = 0.80;
     gremlinValues = new Set(["Witcher", "127.0.0.1", "W'tcher", "W%27tcher", "2"]);
+    endpoints = [];
 
     constructor(base_directory, base_site, headless) {
         this.site_url = new URL(base_site);
@@ -37,6 +38,7 @@ export class AppData {
         this.site_ip = this.site_url.host;
 
         this.loadReqsFromJSON();
+        this.loadConfigsFromJSON();
 
         if (!this.requestsFound || Object.keys(this.requestsFound).length === 0) {
             this.addRequest(new FoundRequest(this.site_url.href, "GET", "", {}, "initial", this.site_url.href));
@@ -98,11 +100,29 @@ export class AppData {
         console.log(`${BLUE}[!] Not founded request_data.json${ENDCOLOR}`);
         return false;
     }
+
+    loadConfigsFromJSON() {
+        let json_fn = path.join(this.base_directory, "config/witcher_config.json");
+
+        if (fs.existsSync(json_fn)) {
+            console.log(`${BLUE}[!] Founded Endpoints in witcher_config.json.${ENDCOLOR}`);
+            this.endpoints = JSON.parse(fs.readFileSync(json_fn))["endpoints"];
+        }
+    }
+
     ignoreRequest(urlstr) {
         try {
             let url = new URL(urlstr);
             if (url.pathname.endsWith('logout.php')) {
                 return true;
+            } else {
+                if (this.endpoints) {
+                    for (let endpoint of this.endpoints) {
+                        if (!url.pathname.endsWith(endpoint)) {
+                            return true;
+                        }
+                    }
+                }
             }
         } catch (ex) {
             console.error(`${RED}[-] An error occurred while ignoring request : ${ENDCOLOR}` + ex)
@@ -136,7 +156,7 @@ export class AppData {
             for (const key of requestFoundKeys) {
                 let req = this.requestsFound[key];
 
-                if (this.ignoreRequest(req._urlstr)) {
+                if (this.ignoreRequest(req._urlstr)) {  // 로그아웃, 설정하지 않은 endpoint 등은 무시
                     this.requestsFound[key]["attempts"] = MAX_NUM_ROUNDS;
                 } else {
                     if (req["attempts"] < this.currentURLRound) {
@@ -189,22 +209,8 @@ export class AppData {
                 reqkey = fRequest.getRequestKey();
             } catch {
                 console.error(`${RED}[-] reqkey ERROR. SKIPPING : ${ENDCOLOR}` + reqkey);
+                console.log('=============================')
                 return false
-            }
-
-            let allowURL = [
-                "http://witcher.kro.kr/wp-admin/admin-ajax.php",
-                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager",
-                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_projects",
-                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_tasks",
-                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_files",
-                "http://witcher.kro.kr/wp-admin/admin.php?page=zephyr_project_manager_categories",
-            ]
-
-            // fRequest.getUrlstr()가 allowURL에 포함되어 있지 않으면 return false
-            if (!allowURL.includes(fRequest.getUrlstr())) {
-                console.log(`${RED}[-] NOT ALLOWED URL. SKIPPING : ${ENDCOLOR}` + fRequest.getUrlstr())
-                return false;
             }
 
             if (reqkey in this.requestsFound) {

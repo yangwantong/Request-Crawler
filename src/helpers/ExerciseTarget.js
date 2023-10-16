@@ -1,6 +1,6 @@
 import path from "path";
 import {RequestExplorer} from "./RequestExplorer.js";
-import {isDefined, isInteractivePage} from "../common/utils.js";
+import {ENDCOLOR, isDefined, isInteractivePage, RED, sleepg} from "../common/utils.js";
 
 let re = null
 let page = null
@@ -43,7 +43,7 @@ const initpage = async(url, doingReload=false) => {
 
     re.requestsAdded += addDataFromBrowser(page, url);
 
-    console.log('[WC] adding hasClicker to elements')
+    console.log('[+] adding hasClicker to elements')
     const elementHandles = await page.$$('div,li,span,a,input,p,button');
     for (let ele of elementHandles) {
         if (!doingReload){
@@ -118,23 +118,20 @@ const checkResponse = async(response, cururl) => {
     return true;
 }
 
-const setPageTimer = (re) => {
-    let self = RequestExplorer;
-    if (RequestExplorer.pagetimeout){
-        console.log("[WC] \x1b[38;5;10mReseting page timer \x1b[0m");
-        clearTimeout(RequestExplorer.pagetimeout);
+const setPageTimer = () => {
+    if (re.pagetimeout){
+        console.log('[+] Resetting Page Timeout')
+        clearTimeout(re.pagetimeout);
     }
-    RequestExplorer.pagetimeout = setTimeout(function(){
-        console.log('[+] STUCKKED Page')
+    re.pagetimeout = setTimeout(function(){
+        console.log('[+] Page Timeout! Closing browser')
         try{
             re.browser_up = false;
-            self.browser.close();
-            console.log("Broswer should have closed by now");
+            re.browser.close();
         } catch (err){
-            console.log("\tProblem closing browser after timeout\n");
-            console.log(err);
+            console.error(`${RED} An error occurred while closing browser: ${ENDCOLOR}`)
         }
-    }, RequestExplorer.actionLoopTimeout*1000 + 6000);
+    }, re.actionLoopTimeout*1000 + 6000);
 }
 
 const hasGremlinResults = () => {
@@ -992,7 +989,7 @@ export const ExerciseTarget = async (RequestExplorer) => {
                         gremlinsTime += 3;
                     }
                     if (currequestsAdded !== re.requestsAdded){
-                        re.setPageTimer();
+                        setPageTimer();
                         gremlinsTime = 0;
                         console.log("[WC] resetting timers b/c new request found")
                     }

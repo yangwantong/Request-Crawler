@@ -11,6 +11,10 @@ export const isDefined = (val) => {
     return !(typeof val === 'undefined' || val === null)
 }
 
+export const sleepg = (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * Attempts to parse the text, if there's a syntax error then returns false
  * @param response
@@ -41,7 +45,7 @@ export const isInteractivePage = (response, responseText) => {
         return true;
     } else {
         console.log(responseText.slice(0,5000))
-        console.log(`[WC]NO HTML tag FOUND anywhere, skipping ${response.url()}`)
+        console.log(`[+]NO HTML tag FOUND anywhere, skipping ${response.url()}`)
         return false;
     }
 

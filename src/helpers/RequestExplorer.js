@@ -4,11 +4,11 @@ import process from "process";
 import puppeteer from "puppeteer";
 
 import { doLogin, addCookiesToPage } from "./PuppeteerLogin.js";
-import {GREEN, ENDCOLOR, RED, ORANGE} from '../common/utils.js';
+import {GREEN, ENDCOLOR, RED, ORANGE, isDefined} from '../common/utils.js';
 import { validateConfig } from "../common/validateConfig.js";
-import { ExerciseTargetPage } from "./ExerciseTargetPage.js";
+// import { ExerciseTargetPage } from "./ExerciseTargetPage.js";
 import { ExerciseTarget } from "./ExerciseTarget.js";
-import {FoundRequest} from "./FoundRequest.js";
+import { FoundRequest } from "./FoundRequest.js";
 
 const MAX_NUM_ROUNDS = 1;   // 한 페이지당 몇번 크롤링을 시도할 것인지
 
@@ -58,7 +58,7 @@ export class RequestExplorer {
             if (this.appData.requestsFound[this.currentRequestKey]) {
                 this.appData.requestsFound[this.currentRequestKey]["processed"]++;
             } else {
-                console.log('음...여긴 뭘까')
+                console.log('TODO: Check this out');    // TODO: 개발용으로 추가한 부분
             }
         }
     }
@@ -109,29 +109,39 @@ export class RequestExplorer {
         }
 
         let roundResults = this.getRoundResults();
-        console.log(`[WC] Round Results for round ${this.appData.currentURLRound} of ${MAX_NUM_ROUNDS}: Total Inputs :  ${roundResults.totalInputs} Total Requests: ${roundResults.equaltoRequests} of ${roundResults.totalRequests} processed so far`);
+        console.log(`[+] Round Results for round ${this.appData.currentURLRound} of ${MAX_NUM_ROUNDS}: Total Inputs :  ${roundResults.totalInputs} Total Requests: ${roundResults.equaltoRequests} of ${roundResults.totalRequests} processed so far`);
 
+    }
+
+    async resetURLBack(page){
+        let cururl = await page.url();
+        console.log("[+] cururl = ", typeof(cururl), cururl, cururl.startsWith("chrome-error"),"\n");
+        if (cururl.startsWith("chrome-error")){
+            await page.goBack();
+            let backedurl = await page.url();
+            console.log(`[+] Performed goBack to ${backedurl} after chrome-error`);
+        }
     }
 
     async searchForURLSelector(page, tag, attribute, completed={}){
         let elements = [];
-        console.log("[WC] searchForURLSelector starting.");
+        console.log("[+] searchForURLSelector starting.");
         try {
             const links = await page.$$(tag);
             for (var i=0; i < links.length; i++) {
                 if (links[i]){
                     if (i === 0){
                         let hc = await links[i].getProperty("hashCode");
-                        console.log(`[WC] check element hash = ${hc} ${typeof(links[i])}`);
+                        console.log(`[+] check element hash = ${hc} ${typeof(links[i])}`);
                     }
                     await this.resetURLBack(page);
                     let valueHandle = null;
                     try{
                         valueHandle = await links[i].getProperty(attribute);
                     } catch(ex){
-                        console.log(`[WC] \x1b[38;5;197m link #${i}/${links.length} error encountered while trying to getProperty`, typeof(page), page.url(), tag, attribute, links[i], "\n",ex, "\x1b[0m");
+                        console.log(`[+] \x1b[38;5;197m link #${i}/${links.length} error encountered while trying to getProperty`, typeof(page), page.url(), tag, attribute, links[i], "\n",ex, "\x1b[0m");
                         try {
-                            console.log("[WC] Trying again", links[i]);
+                            console.log("[+] Trying again", links[i]);
 
                             valueHandle = await links[i].getProperty(attribute);
                         } catch (eex){
@@ -143,12 +153,12 @@ export class RequestExplorer {
                         elements.push(val);
                     }
 
-                    console.log(`[WC] link #${i}/${links.length} completed`);
+                    console.log(`[+] link #${i}/${links.length} completed`);
                 }
             }
 
         } catch (e){
-            console.log("[WC] error encountered while trying to search for tag", typeof(page), page.url(), tag, attribute, "\n\t", e);
+            console.log("[+] error encountered while trying to search for tag", typeof(page), page.url(), tag, attribute, "\n\t", e);
         }
         return elements;
     }
@@ -159,16 +169,16 @@ export class RequestExplorer {
             // these are always GETs
             const anchorlinks = await this.searchForURLSelector(page, 'a', 'href');
             if (anchorlinks){
-                //console.log("[WC] adding valid URLS from anchors ")
+                //console.log("[+] adding valid URLS from anchors ")
                 requestsAdded += this.appData.addValidURLS(anchorlinks, parenturl, "OnPageAnchor");
             }
             const iframelinks = await this.searchForURLSelector(page, 'iframe', 'src');
             if (iframelinks){
-                //console.log("[WC] adding valid URLS from iframe links")
+                //console.log("[+] adding valid URLS from iframe links")
                 requestsAdded += this.appData.addValidURLS(iframelinks, parenturl, "OnPageIFrame");
             }
         } catch (ex){
-            console.log(`[WC] Error in addURLSFromPage(): ${ex}`)
+            console.log(`[+] Error in addURLSFromPage(): ${ex}`)
         }
         return requestsAdded;
     }
@@ -183,13 +193,13 @@ export class RequestExplorer {
                 for (let i = 0; i < forms.length; i++) {
                     let faction = await this.getAttribute(forms[i], "action", "");
                     let fmethod = await this.getAttribute(forms[i], "method", "GET");
-                    console.log("[WC] second form ACTION=", faction, fmethod, " FROM url ", await page.url());
+                    console.log("[+] second form ACTION=", faction, fmethod, " FROM url ", await page.url());
                     requestsAdded += await this.searchForInputs(forms[i]);
                 }
             }
 
         } catch (ex){
-            console.log(`[WC] addFormData(p) Error ${ex}`);
+            console.log(`[+] addFormData(p) Error ${ex}`);
             console.log(ex.stack);
         }
         return requestsAdded;
@@ -420,7 +430,7 @@ export class RequestExplorer {
                             self.appData.addQueryParam(key, value);
                         });
                         if (req.url().startsWith(self.appData.site_url.origin)){
-                            // console.log("[WC] Intercepted in processRequest ", req.url(), req.method());
+                            // console.log("[+] Intercepted in processRequest ", req.url(), req.method());
                             let basename = path.basename(tempurl.pathname);
                             if (req.url().indexOf("rest") > -1 && (req.method() === "POST" || req.method() === "PUT")){
                                 //console.log(basename, req.method(), req.headers(), req.resourceType());
@@ -438,7 +448,7 @@ export class RequestExplorer {
 
                             if (self.appData.addInterestingRequest(foundRequest) > 0){
                                 self.requestsAdded++;
-                                //console.log("[WC] ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR}intercepted request req.url() = ", req.url());
+                                //console.log("[+] ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR}intercepted request req.url() = ", req.url());
                             }
                             // skip if it has a period for nodejs apps
 
@@ -451,7 +461,7 @@ export class RequestExplorer {
                         } else {
 
                             if (req.url().indexOf("gremlins") > -1){
-                                //console.log("[WC] CONTINUING with getting some gremlins in here.");
+                                //console.log("[+] CONTINUING with getting some gremlins in here.");
                                 req.continue();
                             } else {
                                 try{
@@ -459,10 +469,10 @@ export class RequestExplorer {
                                     if (req.url().startsWith("image/") || url.pathname.endsWith(".gif") || url.pathname.endsWith(".jpeg") || url.pathname.endsWith(".jpg") || url.pathname.endsWith(".woff") || url.pathname.endsWith(".ttf")){
 
                                     } else {
-                                        //console.log(`[WC] Ignoring request for ${req.url().substr(0,200)}`)
+                                        //console.log(`[+] Ignoring request for ${req.url().substr(0,200)}`)
                                     }
                                 } catch (e){
-                                    //console.log(`[WC] Ignoring request for malformed url = ${req.url().substr(0,200)}`)
+                                    //console.log(`[+] Ignoring request for malformed url = ${req.url().substr(0,200)}`)
                                 }
                                 if (self.isLoading){
                                     req.continue();
@@ -473,56 +483,55 @@ export class RequestExplorer {
                                     );
                                 }
                             }
-                            return;
                         }
-                        if (false && req.frame() === self.page.mainFrame()){
-                            console.log(`[WC] Aborting request b/c frame == mainframe for ${req.url().substr(0,200)}`)
-                            //req.abort('aborted');
-                            req.respond(req.redirectChain().length
-                                ? { body: '' } // prevent 301/302 redirect
-                                : { status: 204 } // prevent navigation by js
-                            )
-                        } else {
-                            if (req.isNavigationRequest() && req.frame() === self.page.mainFrame() ) {
-                                if (typeof self.last_nav_request !== "undefined" && self.last_nav_request === req.url()){
-                                    console.log("[WC] Aborting request b/c this is the same as last nav request, ignoring");
-
-                                    self.last_nav_request = req.url();
-                                    req.respond(req.redirectChain().length
-                                        ? { body: '' } // prevent 301/302 redirect
-                                        : { status: 204 } // prevent navigation by js
-                                    )
-                                    return;
-                                }
-                                self.last_nav_request = req.url();
-                                if (req.url().indexOf("gremlins") > -1){
-                                    req.continue();
-                                    return;
-                                }
-                                if (self.isLoading){
-                                    req.continue();
-                                } else {
-                                    req.respond(req.redirectChain().length
-                                        ? { body: '' } // prevent 301/302 redirect
-                                        : { status: 204 } // prevent navigation by js
-                                    )
-                                }
-
-                            } else {
-                                if (req.frame() === self.page.mainFrame()){
-                                    if (self.isLoading){
-
-                                        self.loadedURLs.push(tempurl.origin + tempurl.pathname);
-                                        req.continue();
-                                    } else {
-                                        req.continue();
-                                    }
-                                } else {
-                                    req.continue()
-                                }
-
-                            }
-                        }
+                        // if (false && req.frame() === self.page.mainFrame()){
+                        //     console.log(`[+] Aborting request b/c frame == mainframe for ${req.url().substr(0,200)}`)
+                        //     //req.abort('aborted');
+                        //     req.respond(req.redirectChain().length
+                        //         ? { body: '' } // prevent 301/302 redirect
+                        //         : { status: 204 } // prevent navigation by js
+                        //     )
+                        // } else {
+                        //     if (req.isNavigationRequest() && req.frame() === self.page.mainFrame() ) {
+                        //         if (typeof self.last_nav_request !== "undefined" && self.last_nav_request === req.url()){
+                        //             console.log("[+] Aborting request b/c this is the same as last nav request, ignoring");
+                        //
+                        //             self.last_nav_request = req.url();
+                        //             req.respond(req.redirectChain().length
+                        //                 ? { body: '' } // prevent 301/302 redirect
+                        //                 : { status: 204 } // prevent navigation by js
+                        //             )
+                        //             return;
+                        //         }
+                        //         self.last_nav_request = req.url();
+                        //         if (req.url().indexOf("gremlins") > -1){
+                        //             req.continue();
+                        //             return;
+                        //         }
+                        //         if (self.isLoading){
+                        //             req.continue();
+                        //         } else {
+                        //             req.respond(req.redirectChain().length
+                        //                 ? { body: '' } // prevent 301/302 redirect
+                        //                 : { status: 204 } // prevent navigation by js
+                        //             )
+                        //         }
+                        //
+                        //     } else {
+                        //         if (req.frame() === self.page.mainFrame()){
+                        //             if (self.isLoading){
+                        //
+                        //                 self.loadedURLs.push(tempurl.origin + tempurl.pathname);
+                        //                 req.continue();
+                        //             } else {
+                        //                 req.continue();
+                        //             }
+                        //         } else {
+                        //             req.continue()
+                        //         }
+                        //
+                        //     }
+                        // }
 
                     }
                 }
@@ -548,7 +557,7 @@ export class RequestExplorer {
                 }
 
                 // const consoleLog = (message) => {
-                //     if (message.text().indexOf("[WC]") > -1) {
+                //     if (message.text().indexOf("[+]") > -1) {
                 //         if (message.text().indexOf("lamehorde is done") > -1){
                 //             console.log(`[\x1b[38;5;136mWC${ENDCOLOR}] Lamehorde completion detected`);
                 //             self.lamehord_done = true;
@@ -557,7 +566,7 @@ export class RequestExplorer {
                 //         }
                 //     } else if (message.text().search("[WC-URL]") > - 1){
                 //         let urlstr = message.text().slice("[WC-URL]".length);
-                //         console.log(`[WC] puppeteer layer recieved url from browser with urlstr='${urlstr}'`);
+                //         console.log(`[+] puppeteer layer recieved url from browser with urlstr='${urlstr}'`);
                 //         self.appData.addValidURLS([urlstr], `${self.appData.site_url.href}`,"ConsleRecvd");
                 //
                 //     } else if (message.text().search("CW DOCUMENT") === -1 && message.text() !== "JSHandle@node") {
