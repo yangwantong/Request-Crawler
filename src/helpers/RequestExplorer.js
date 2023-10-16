@@ -6,7 +6,7 @@ import puppeteer from "puppeteer";
 import { doLogin, addCookiesToPage } from "./PuppeteerLogin.js";
 import {GREEN, ENDCOLOR, RED, ORANGE, isDefined} from '../common/utils.js';
 import { validateConfig } from "../common/validateConfig.js";
-// import { ExerciseTargetPage } from "./ExerciseTargetPage.js";
+// import { ExerciseTargetPage } from "./ExerciseTargetPage";
 import { ExerciseTarget } from "./ExerciseTarget.js";
 import { FoundRequest } from "./FoundRequest.js";
 
@@ -128,7 +128,7 @@ export class RequestExplorer {
         console.log("[+] searchForURLSelector starting.");
         try {
             const links = await page.$$(tag);
-            for (var i=0; i < links.length; i++) {
+            for (let i=0; i < links.length; i++) {
                 if (links[i]){
                     if (i === 0){
                         let hc = await links[i].getProperty("hashCode");
@@ -161,6 +161,116 @@ export class RequestExplorer {
             console.log("[+] error encountered while trying to search for tag", typeof(page), page.url(), tag, attribute, "\n\t", e);
         }
         return elements;
+    }
+
+    async getAttribute(node, attribute, defaultval=""){
+        let valueHandle = await node.getProperty(attribute);
+        let val = await valueHandle.jsonValue();
+        if (isDefined(val)){
+            //logdata(attribute + val);
+            //elements.push(val);
+            return val;
+        }
+        return defaultval;
+    }
+
+    async searchTags(tags) {
+        let formdata = "";
+        for (let j = 0; j < tags.length; j++) {
+            let tagname = encodeURIComponent(await this.getAttribute(tags[j], "name"));
+            let tagval = encodeURIComponent(await this.getAttribute(tags[j], "value"));
+            formdata += `${tagname}=${tagval}&`;
+            this.appData.addQueryParam(tagname, tagval);
+        }
+        return formdata;
+    }
+
+    addFormbasedRequest(foundRequest, requestsAdded){
+        if (foundRequest.isSaveable() ){ // && this.appData.containsMaxNbrSameKeys(tempurl) === false
+
+            if (this.appData.containsEquivURL(foundRequest, true) ) {
+                // do nothing yet
+                //console.log("[WC] Could have been added, ",foundRequest.postData());
+            } else {
+                let url = new URL(foundRequest.getUrlstr());
+
+                if (foundRequest.getUrlstr().startsWith(`${this.appData.site_url.origin}`) || this.appData.ips.includes(url.hostname)){
+                    foundRequest.from = "PageForms";
+                    foundRequest.cleanURLParamRepeats()
+                    foundRequest.cleanPostDataRepeats()
+                    let wasAdded = this.appData.addRequest(foundRequest);
+                    if (wasAdded){
+                        requestsAdded++;
+                        if (foundRequest.postData()){
+                            console.log(`[${GREEN}WC${ENDCOLOR}] ${GREEN} ADDED ${ENDCOLOR}${foundRequest.toString()} postData=${foundRequest.postData()} ${ENDCOLOR}`);
+                        } else {
+                            console.log(`[${GREEN}WC${ENDCOLOR}]] ${GREEN} ADDED ${ENDCOLOR}${foundRequest.toString()} \n ${ENDCOLOR}`);
+                        }
+                    }
+                } else {
+                    console.log(`\x1b[38;5;3m[WC] IGNORED b/c not correct ${foundRequest.toString()} does not start with ${this.appData.site_url.origin} ips = ${this.appData.ips} hostname=${url.hostname} -- ${ENDCOLOR}`);
+                }
+            }
+        }
+        return requestsAdded;
+    }
+
+    async searchForInputs(node){
+        let requestsAdded = 0;
+        let requestInfo = {}; //{action:"", method:"", elems:{"attributename":"value"}
+        let nodeaction = await this.getAttribute(node, "action");
+        let method = await this.getAttribute(node, "method");
+
+
+        const buttontags = await node.$$('button');
+        let formdata = await this.searchTags(buttontags);
+
+        const inputtags = await node.$$('input');
+        formdata += await this.searchTags(inputtags);
+
+        const selectags = await node.$$('select');
+        formdata += await this.searchTags(selectags);
+
+        const textareatags = await node.$$('textarea');
+        formdata += await this.searchTags(textareatags);
+        if (formdata.length === 0){
+            return requestsAdded;
+        }
+
+        let formInfo = FoundRequest.requestParamFactory(nodeaction, method, "",{},"PageForms",this.appData.site_url.href);
+        formInfo.addParams(formdata);
+        let allParams = formInfo.getAllParams();
+
+        let basedata = "";
+        for (const [pkey, pvalue] of Object.entries(allParams)) {
+            if (pkey in formInfo.multipleParamKeys) {
+                continue;
+            }
+            let arrVal = Array.from(pvalue);
+            if (arrVal.length > 0){
+                basedata += `${pkey}=${arrVal[0]}&`
+            } else {
+                basedata += `${pkey}=&`
+            }
+        }
+        let postdata = [basedata]
+        for (let mpk of formInfo.multipleParamKeys) {
+            let new_pd = []
+            for (let ele of Array.from(allParams[mpk])){
+                for (let pd of postdata){
+                    new_pd.push(pd + `${mpk}=${ele}&`);
+                }
+            }
+            postdata = new_pd;
+        }
+
+        for (let pd of postdata){
+            let formBasedRequest = FoundRequest.requestParamFactory(nodeaction, method, pd,{},"PageForms",this.appData.site_url.href);
+            //console.log("[WC] Considering the addition of ",typeof(formBasedRequest.urlstr()), formBasedRequest.urlstr(), formBasedRequest.postData());
+            requestsAdded = this.addFormbasedRequest(formBasedRequest, requestsAdded);
+        }
+
+        return requestsAdded;
     }
 
     async addURLsFromPage(page, parenturl){
@@ -216,13 +326,13 @@ export class RequestExplorer {
         //soughtParamsArr = [...new Set(soughtParamsArr)];
         let nbrParams = Object.keys(soughtParamsArr).length;
         // if nbrParams*matchPercent is more than nbrParams-1, it's requires a 100% parameter match
-        let fullMatchEquiv = nbrParams * this.fuzzyMatchEquivPercent;
+        let fullMatchEquiv = nbrParams * this.appData.getFuzzyMatchEquivPercent();
 
         let soughtPathname = soughtRequest.getPathname();
 
         let keyMatch = 0;
 
-        for (let savedReq of Object.values(this.requestsFound)){
+        for (let savedReq of Object.values(this.appData.requestsFound)){
             let prevURL = savedReq.getURL();
             let prevPathname = savedReq.getPathname();
 
@@ -241,18 +351,18 @@ export class RequestExplorer {
                         let pd_match = re.exec(postData)
                         let test_pd_match = re.exec(testPostData);
 
-                        let matchVal = this.fuzzyValueMatch(pd_match[1], test_pd_match[1])
+                        let matchVal = this.appData.fuzzyValueMatch(pd_match[1], test_pd_match[1])
                         return matchVal;
                     }
                 }
 
                 let testParamsArr = savedReq.getAllParams();
 
-                if (this.equivParameters(soughtParamsArr, testParamsArr , fullMatchEquiv)){
+                if (this.appData.equivParameters(soughtParamsArr, testParamsArr , fullMatchEquiv)){
                     return true;
                 } else if ((nbrParams-1) < fullMatchEquiv){
                     // for situations where the reduced number of parameters forces 100%, also do a keyMatch
-                    if (this.keyMatch(soughtParamsArr, testParamsArr) &&  this.fuzzyMatchEquivPercent < .99){
+                    if (this.appData.keyMatch(soughtParamsArr, testParamsArr) &&  this.appData.getFuzzyMatchEquivPercent() < .99){
                         keyMatch++;
                     }
                 }
@@ -265,20 +375,20 @@ export class RequestExplorer {
             }
         }
         /*since the */
-        return (nbrParams <= 3 && keyMatch >= this.maxKeyMatches);
+        return (nbrParams <= 3 && keyMatch >= this.appData.getMaxKeyMatches());
     }
 
     addValidURLS(links, parenturl, origin){
         let requestsAdded = 0;
         for (let link of links){
-            let validURLStr = this.getValidURL(link, parenturl);
+            let validURLStr = this.appData.getValidURL(link, parenturl);
 
             if (validURLStr.length > 0){
                 let foundRequest = FoundRequest.requestParamFactory(validURLStr, "GET", "",{},origin,this.site_url.href);
 
                 if (!this.containsEquivURL(foundRequest)){
                     foundRequest.from = origin;
-                    let addResult = this.addRequest(foundRequest);
+                    let addResult = this.appData.addRequest(foundRequest);
                     if (addResult){
                         requestsAdded++;
                         console.log(`[${GREEN}WC${ENDCOLOR}] ${GREEN} ADDED ${ENDCOLOR}${foundRequest.toString()} `);
@@ -388,10 +498,10 @@ export class RequestExplorer {
                         return;
                     }
 
-                    console.log(tempurl)
+                    // console.log(tempurl.href)
 
                     if (self.url.href === req.url()) {
-                        console.log("[!] SAME URL is requested.")   // TODO: 개발용으로 추가한 부분
+                        // console.log("[!] SAME URL is requested.")   // TODO: 개발용으로 추가한 부분
                         let pdata = {
                             'method': self.method,
                             'postData': self.postData,
@@ -454,7 +564,7 @@ export class RequestExplorer {
 
                             let result = self.appData.addRequest(req.url(), req.method(), req.postData(), "interceptedRequest");
                             if (result){
-                                console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.numRequestsFound()}\x1b[0m`);
+                                console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.getRequestCount()}\x1b[0m`);
                             } else {
                                 // console.log(`INTERCEPTED and ABORTED repeat URL ${req.url()}`);
                             }

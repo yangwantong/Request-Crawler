@@ -365,7 +365,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                             //console.log("mouse event = ", ev);
                             let mainurl = window.location.href;
                             let hiddenChildren = [];
-                            for (clickablechild of startingDOM) {
+                            for (let clickablechild of startingDOM) {
                                 if (clickablechild.offsetParent === null){
                                     hiddenChildren.push(clickablechild)
                                 }

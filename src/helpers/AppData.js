@@ -3,6 +3,7 @@ import path from 'path';
 import { FoundRequest } from './FoundRequest.js';
 import { RED, GREEN, BLUE, CYAN, ENDCOLOR, YELLOW } from '../common/utils.js';
 import { networkInterfaces } from 'os';
+import fuzzySet from 'fuzzyset';
 
 const MAX_NUM_ROUNDS = 1;   // 한 페이지당 몇번 크롤링을 시도할 것인지
 
@@ -23,6 +24,7 @@ export class AppData {
     minFuzzyScore = 0.80;
     gremlinValues = new Set(["Witcher", "127.0.0.1", "W'tcher", "W%27tcher", "2"]);
     endpoints = [];
+    ignoreEndpoints = [];
 
     constructor(base_directory, base_site, headless) {
         this.site_url = new URL(base_site);
@@ -40,9 +42,76 @@ export class AppData {
         this.loadReqsFromJSON();
         this.loadConfigsFromJSON();
 
-        if (!this.requestsFound || Object.keys(this.requestsFound).length === 0) {
-            this.addRequest(new FoundRequest(this.site_url.href, "GET", "", {}, "initial", this.site_url.href));
+        if (this.endpoints) {
+            for (let endpoint of this.endpoints) {
+                this.addRequest(FoundRequest.requestParamFactory(`${this.site_url.href}${endpoint}`, "GET", "",{},"endpoint",this.site_url.href))
+            }
+        } else {
+            if (!this.requestsFound || Object.keys(this.requestsFound).length === 0) {
+                this.addRequest(FoundRequest.requestParamFactory(`${this.site_url.href}`, "GET", "",{},"initial",this.site_url.href))
+            }
         }
+    }
+
+    getValidURL(urlstr, parenturl) {
+        let lowerus = urlstr.toLowerCase();
+        if (lowerus.startsWith("javascript")) {
+            return "";
+        }
+        //console.log("\x1b[38;5;3mTESTING", urlstr, "\x1b[0m", ` for parent ${parenturl.origin}`);
+
+        //if (lowerus.search(/.php($|\?)/) > -1 || lowerus.search(/.html($|\?)/) > -1 || lowerus.search("#") > -1 ) {
+
+        if (lowerus.startsWith(parenturl.origin)) {
+            //console.log("\x1b[38;5;3mValidated ", urlstr, "\x1b[0m");
+            return urlstr;
+        } else if (lowerus.startsWith("http")) {
+            //console.log("\x1b[38;5;3mFAILED TO validate ", urlstr, "\x1b[0m");
+            return "";
+        }
+
+        if (lowerus.startsWith("/")) { // absolute path
+            console.log("\x1b[38;5;3mValidated from /", parenturl.origin + urlstr, "\x1b[0m");
+            return parenturl.origin + urlstr;
+        } else { // relative path
+            let lastPathOut = ""
+            try {
+                //console.log("\x1b[38;5;3mLast choice trying to add origin and pathname to lowerus ", parenturl.origin + path.dirname(parenturl.pathname) + urlstr, "\x1b[0m");
+                lastPathOut = parenturl.origin + path.dirname(parenturl.pathname) + urlstr;
+            } catch (Exception) {
+                //console.log("\x1b[38;5;3mInvalid path WITH Last choice trying to add origin and pathname to lowerus parenturl=", parenturl, "urlstr=", urlstr, "\x1b[0m");
+                return ""
+            }
+            return parenturl.origin + path.dirname(parenturl.pathname) + urlstr;
+        }
+
+    }
+
+    keyMatch(soughtParams, testParams){
+
+        if (Object.keys(soughtParams).length !== Object.keys(testParams).length){
+            return false;
+        }
+
+        for (let param of Object.keys(soughtParams)){
+            // want to disable keyMatch equivalence when the key value is required
+            if (this.urlUniqueIfValueUnique.has(param)){
+                return false;
+            }
+            if (!(param in testParams)){
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    getMaxKeyMatches() {
+        return this.maxKeyMatches;
+    }
+
+    getFuzzyMatchEquivPercent() {
+        return this.fuzzyMatchEquivPercent;
     }
 
     getCurrentURLRound() {
@@ -106,23 +175,20 @@ export class AppData {
 
         if (fs.existsSync(json_fn)) {
             console.log(`${BLUE}[!] Founded Endpoints in witcher_config.json.${ENDCOLOR}`);
-            this.endpoints = JSON.parse(fs.readFileSync(json_fn))["endpoints"];
+            let jsonData = JSON.parse(fs.readFileSync(json_fn))["request_crawler"]
+            this.endpoints = ["endpoints"];
+            this.ignoreEndpoints = JSON.parse()
         }
     }
 
     ignoreRequest(urlstr) {
         try {
             let url = new URL(urlstr);
-            if (url.pathname.endsWith('logout.php')) {
+            // if (url.pathname.endsWith('logout.php')) {
+            //     return true;
+            // }
+            if (url.pathname.includes('logout')) {
                 return true;
-            } else {
-                if (this.endpoints) {
-                    for (let endpoint of this.endpoints) {
-                        if (!url.pathname.endsWith(endpoint)) {
-                            return true;
-                        }
-                    }
-                }
             }
         } catch (ex) {
             console.error(`${RED}[-] An error occurred while ignoring request : ${ENDCOLOR}` + ex)
@@ -190,6 +256,76 @@ export class AppData {
         fs.writeFileSync(path.join(this.base_directory, "output/request_data.json"), jdata);
     }
 
+    /**
+     * Looks for an equivalnt match where fullMatchEquiv of the params or more match one another in the query strings.
+     * @param soughtParams
+     * @param testParams
+     * @param fullMatchEquiv the percent of key/values in the query string that are equivalent to an exact match
+     * @returns {boolean}
+     */
+    equivParameters(soughtParams, testParams, fullMatchEquiv){
+        // if target has no query params
+        if (testParams.length === 0){
+            return false;
+        }
+        let paramValueMatchCnt=0;
+        let gremlinValues = this.gremlinValues;
+        // excluded
+        //0.3533549273542278&_=1617038119579
+        //0.8389814703576484&_=1617038119586
+        //0.5336236531483045
+        let timeVarRegex = /[0-9.]+[0-9]{6,50}/; // e.g., 0.3533549273542278
+        // All keys must be the same for a match
+        for (let [skey,svalues] of Object.entries(soughtParams)){
+            // add as a match when a variable matches the format for timestamp nanoseconds
+            // this might be too lax, should maybe find match for both
+            if (timeVarRegex.exec(skey)){
+                paramValueMatchCnt++;
+                continue;
+            }
+            if (skey in testParams){
+                if (this.ignoreValues.has(skey)){
+                    paramValueMatchCnt++;
+                } else {
+                    //console.log(`svalues=`,svalues, `testParams[skey]=`,testParams[skey], skey, )
+                    for (const svalue of svalues.values()){
+                        if (testParams[skey].has(svalue) ) {
+                            paramValueMatchCnt++;
+                            break;
+                        } else if (gremlinValues.has(svalue) ||svalue.match(/1999.12.12/) || svalue.match(/12.12.1999/)){
+                            paramValueMatchCnt++;
+                            break;
+                        } else {
+                            if (this.urlUniqueIfValueUnique.has(skey)){
+                                return false;
+                            }
+                            if (svalue.length > 5 && this.fuzzyValueMatch(svalue, testParams[skey])){
+                                paramValueMatchCnt++;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // } else {
+                //     return false;
+            }
+        }
+        //console.log(`Equiv found ${paramValueMatchCnt} of ${fullMatchEquiv} ${(paramValueMatchCnt >= fullMatchEquiv)}`);
+        return (paramValueMatchCnt >= fullMatchEquiv);
+
+    }
+
+    fuzzyValueMatch(soughtValue, testValues){
+        let fuzset = fuzzySet([...testValues]);
+        let results = fuzset.get(soughtValue,false, this.minFuzzyScore);
+        if (results === false){
+            return false;
+        } else {
+            //console.log("Fuzzy Match = ", results[0][0]);
+            return true;
+        }
+    }
+
     getRequestInfo() {
         let outstr = "";
         for (let value of Object.values(this.requestsFound)) {
@@ -209,7 +345,6 @@ export class AppData {
                 reqkey = fRequest.getRequestKey();
             } catch {
                 console.error(`${RED}[-] reqkey ERROR. SKIPPING : ${ENDCOLOR}` + reqkey);
-                console.log('=============================')
                 return false
             }
 
@@ -220,7 +355,7 @@ export class AppData {
                 this.collectedURL++;
                 this.requestsFound[reqkey] = fRequest;
 
-                console.log(`${GREEN}[+] URL Collected: ${ENDCOLOR}` + reqkey);
+                console.log(`${YELLOW}[addRequest] ` + fRequest.from + ` : ${ENDCOLOR}` + reqkey);
                 return true;
             }
         } catch (err) {
@@ -235,7 +370,7 @@ export class AppData {
         try {
             tempURL = new URL(foundRequest._urlstr);
         } catch(err) {
-            console.log("ERROR : tempURL is INVALID")
+            // console.error("ERROR : tempURL is INVALID")
             return requestsAdded;
         }
 
