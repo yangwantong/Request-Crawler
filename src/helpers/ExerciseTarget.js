@@ -1,6 +1,6 @@
 import path from "path";
 import {RequestExplorer} from "./RequestExplorer.js";
-import {ENDCOLOR, isDefined, isInteractivePage, RED, sleepg} from "../common/utils.js";
+import {ENDCOLOR, isDefined, isInteractivePage, RED, sleep} from "../common/utils.js";
 
 let re = null
 let page = null
@@ -30,9 +30,10 @@ const addDataFromBrowser = async (page, parenturl) => {
 }
 
 const initpage = async(url, doingReload=false) => {
+    console.log(`[+] initpage called (${url})`);
 
     // await page.keyboard.down('Escape');
-    console.log(`loading gremscript from local `);
+    console.log(`[+] loading gremscript from local`);
     await page.addScriptTag({path: "../node_modules/gremlins.js/dist/gremlins.min.js"});
 
     re.isLoading = false;
@@ -186,7 +187,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
         let currentDateYearFirst = `${yyyy}-${mm}-${dd}`;
         let currentDateMonthFirst = `${mm}-${dd}-${yyyy}`;
-
         function shuffle(array) {
             let currentIndex = array.length, temporaryValue, randomIndex;
 
@@ -204,9 +204,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
 
             return array;
-        }
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
         }
         function getChangedDOM(domBefore, domAfter){
             let changedDOM = {};
@@ -461,8 +458,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             } //end for loop eleIndex
         }
-
-
         async function checkHordeLoad(){
             if (typeof window.gremlins === 'undefined') {
                 console.log("cannot find gremlins, attempting to load on the fly");
@@ -480,7 +475,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
         }
         async function repeativeHorde(){
-
             let all_submitable =  [...document.getElementsByTagName("form"),
                 ...document.querySelectorAll('[type="submit"]')];
 
@@ -518,9 +512,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                 }
             }
         }
-
         async function lameHorde(){
-
             console.log("[WC] Searching and clicking.");
             window.alert = function(message) {/*console.log(`Intercepted alert with '${message}' `)*/};
 
@@ -570,7 +562,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             setTimeout(coolHorde, 1000);
 
         }
-
         async function triggerHorde(){
             try{
                 let select_elems = document.querySelectorAll("select");
@@ -585,7 +576,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                 console.log(ex.stack)
             }
         }
-        let randomizer = new gremlins.Chance();
         const triggerSimulatedOnChange = (element, newValue, prototype) => {
             const lastValue = element.value;
             element.value = newValue;
@@ -615,7 +605,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             return value;
         };
-
         const fillNumberElement = (element) => {
             const number = randomizer.character({ pool: '0123456789' });
             const newValue = element.value + number;
@@ -623,7 +612,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             return number;
         };
-
         const fillSelect = (element) => {
             const options = element.querySelectorAll('option');
             if (options.length === 0) return;
@@ -637,7 +625,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             return randomOption.value;
         };
-
         const fillRadio = (element) => {
             // using mouse events to trigger listeners
             const evt = document.createEvent('MouseEvents');
@@ -646,7 +633,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             return element.value;
         };
-
         const fillCheckbox = (element) => {
             // using mouse events to trigger listeners
             const evt = document.createEvent('MouseEvents');
@@ -655,7 +641,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             return element.value;
         };
-
         const fillEmail = (element) => {
             const email = "test@test.com";
             triggerSimulatedOnChange(element, email, window.HTMLInputElement.prototype);
@@ -664,7 +649,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
         };
         const fillTextElement = (element) => {
             if (!element){
-                console.log(`[WC] Element is null?????`)
+                console.log('[*] fillTextElement : Element is null')
                 return 0;
             }
             let oldDateYearFirst = "1998-10-11";
@@ -685,7 +670,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                     }
                 } else {
                     formEntries[desc] = {origingal_value: current_value, inc:1};
-
                     return current_value;
                 }
             }
@@ -726,7 +710,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             } else if (rnd > 0.1) {
                 value = rnd > .45 ? currentDateYearFirst : oldDateYearFirst;
             } else if (rnd > 0.0){
-                //value = value;
                 value = current_value;
             }
             element.value = value;
@@ -748,20 +731,6 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             element.click();
             return element.value
         }
-        let wFormElementMapTypes = {
-            textarea: fillTextAreaElement,
-            'input[type="text"]': fillTextElement,
-            'input[type="password"]': fillPassword,
-            'input[type="number"]': fillNumberElement,
-            select: fillSelect,
-            'input[type="radio"]': fillRadio,
-            'input[type="checkbox"]': fillCheckbox,
-            'input[type="email"]': fillEmail,
-            'input[type="submit"]' : clickSub,
-            'button' : clickSub,
-            'input:not([type])': fillTextElement,
-        }
-
         async function coolHorde(){
             let noChance = new gremlins.Chance();
             noChance.character = function(options) {
@@ -818,6 +787,24 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             clearInterval(repeativeHorde);
             clearInterval(triggerHorde);
         }
+
+        let wFormElementMapTypes = {
+            textarea: fillTextAreaElement,
+            'input[type="text"]': fillTextElement,
+            'input[type="password"]': fillPassword,
+            'input[type="number"]': fillNumberElement,
+            select: fillSelect,
+            'input[type="radio"]': fillRadio,
+            'input[type="checkbox"]': fillCheckbox,
+            'input[type="email"]': fillEmail,
+            'input[type="submit"]' : clickSub,
+            'button' : clickSub,
+            'input:not([type])': fillTextElement,
+        }
+
+        let randomizer = new gremlins.Chance();
+
+
         try {
             if (gremlinsHaveStarted) {
                 console.log("[WC] Restarted Page -- going with Gremlins only")
@@ -856,6 +843,12 @@ export const ExerciseTarget = async (RequestExplorer) => {
     setPageTimer();
 
     let url = re.url;
+
+    if (re.appData.ignoreEndpoints.includes(url)) {
+        console.log(`[*] Gremlins Test : Ignoring endpoint ${url.href}`);
+        return;
+    }
+
     let shortname = "";
     if (url.href.indexOf("/") > -1) {
         shortname = path.basename(url.pathname);
@@ -866,7 +859,8 @@ export const ExerciseTarget = async (RequestExplorer) => {
         console.log(`[WC] Dismissing Message: ${dialog.message()}`);
         await dialog.dismiss();
     });
-    // making 3 attempts to load page
+
+    // 페이지 로드를 최대 3번까지 시도 후 실패하면 종료
     for (let i=0;i<3;i++){
         try {
             let response = "";
@@ -878,8 +872,8 @@ export const ExerciseTarget = async (RequestExplorer) => {
                 console.log("Reloading page ", turl);
             } else {
                 let request_page =url.origin + url.pathname
-                console.log("GOING TO requested page =", request_page );
-
+                // console.log("GOING TO requested page =", request_page );
+                console.log("GOING TO requested page =", url.href );
                 response = await page.goto(url.href, options);
             }
 
@@ -893,16 +887,16 @@ export const ExerciseTarget = async (RequestExplorer) => {
             if (response_good){
                 madeConnection = await initpage(url);
             }
-
             break; // connection successful
         } catch (e) {
-
-            console.log(`Error: Browser cannot connect to '${url.href}' RETRYING`);
-            console.log(e.stack);
+            console.log(`${RED}[-] Browser can't connect to : ${url.href}${ENDCOLOR}`);
+            console.log('Retrying...' + (i + 1) + ' of 3');
+            // console.log(e.stack);
         }
     }
     if (!madeConnection){
-        console.log(`Error: LAST ATTEMPT, giving up, browser cannot connect to '${url.href}'`);
+        console.log(`${RED}[-] Browser can't connect to : ${url.href}${ENDCOLOR}`);
+        console.log(`${RED}[-] Exiting...${ENDCOLOR}`);
         return;
     }
 
@@ -966,6 +960,7 @@ export const ExerciseTarget = async (RequestExplorer) => {
                 }
                 re.isLoading = false;
             }
+
             await page.waitForTimeout(re.timeoutValue*1000);
             let gremlinsHaveFinished = false;
             let gremlinsHaveStarted = false;
@@ -978,7 +973,7 @@ export const ExerciseTarget = async (RequestExplorer) => {
                 while (!gremlinsHaveFinished && re.browser_up && gremlinsTime < 30){
                     let currequestsAdded = re.requestsAdded;
                     console.log(`LOOP: gremlinsHaveStarted = ${gremlinsHaveStarted} gremlinsHaveFinished = ${gremlinsHaveFinished} browser_up=${re.browser_up}  gremlinsTime=${gremlinsTime}`);
-                    await(sleepg(3000));
+                    await(sleep(3000));
                     gremlinsHaveFinished = await page.evaluate(()=>{return window.gremlinsHaveFinished;});
                     gremlinsHaveStarted = await page.evaluate(()=>{return window.gremlinsHaveStarted;});
                     if (typeof(gremlinsHaveFinished) === "undefined" || gremlinsHaveFinished === null){
@@ -993,6 +988,19 @@ export const ExerciseTarget = async (RequestExplorer) => {
                         gremlinsTime = 0;
                         console.log("[WC] resetting timers b/c new request found")
                     }
+                    await page.evaluate((ignoreEndpoints) => {
+                        document.addEventListener('click', (e) => {
+                            const clickedUrl = e.target.href;
+
+                            // Check if the clicked URL contains any of the ignored endpoints
+                            if (ignoreEndpoints.some((endpoint) => clickedUrl.includes(endpoint))) {
+                                e.preventDefault(); // Prevent the default click behavior
+                                e.stopPropagation(); // Stop the click event propagation
+                                console.log(`Blocked click to: ${clickedUrl}`);
+                            }
+                        });
+                    }, re.appData.ignoreEndpoints);
+
                 }
             } catch (ex){
                 console.log("Error occurred while checking gremlins, restarting \nError Info: ", ex);

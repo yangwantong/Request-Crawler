@@ -18,7 +18,7 @@ export class RequestExplorer {
     loopcnt = 0;
     cookies = [];
     bearer = "";
-    isLoading = false;
+    isLoading = false;  // 페이지가 로딩중인지 확인 (페이지에 gremlins 스크립트를 추가중이면 true)
     reinitPage = false;
     loadedURLs = [];
     passwordValue = "";
@@ -31,7 +31,8 @@ export class RequestExplorer {
     shownMessages = {};
     maxLevel = 10;
     browser = null;
-    page = null;
+    lognPage = null;
+    page = null
     gremlins_error = false;
     lamehord_done = false;
     gremlins_url = "";
@@ -115,7 +116,7 @@ export class RequestExplorer {
 
     async resetURLBack(page){
         let cururl = await page.url();
-        console.log("[+] cururl = ", typeof(cururl), cururl, cururl.startsWith("chrome-error"),"\n");
+        // console.log("[+] cururl = ", typeof(cururl), cururl, cururl.startsWith("chrome-error"),"\n");
         if (cururl.startsWith("chrome-error")){
             await page.goBack();
             let backedurl = await page.url();
@@ -123,6 +124,14 @@ export class RequestExplorer {
         }
     }
 
+    /**
+     * HTML에서 <a>, <iframe> 태그로부터 특정 속성 값을 추출한다.
+     * @param {*} page 현재 웹 페이지를 나타내는 puppeteer의 핸들
+     * @param {*} tag 추출하려는 HTML 태그의 종류
+     * @param {*} attribute 추출하려는 속성(attribute)의 이름
+     * @param {*} completed
+     * @returns {Array} 추출한 속성 값들의 배열
+     */
     async searchForURLSelector(page, tag, attribute, completed={}){
         let elements = [];
         console.log("[+] searchForURLSelector starting.");
@@ -153,27 +162,37 @@ export class RequestExplorer {
                         elements.push(val);
                     }
 
-                    console.log(`[+] link #${i}/${links.length} completed`);
+                    // console.log(`[+] link #${i}/${links.length} completed`);
                 }
             }
 
         } catch (e){
-            console.log("[+] error encountered while trying to search for tag", typeof(page), page.url(), tag, attribute, "\n\t", e);
+            console.error("[-] error encountered while trying to search for tag", typeof(page), page.url(), tag, attribute, "\n\t", e);
         }
         return elements;
     }
 
+    /**
+     * HTML에서 지정된 속성 값을 가져온다.
+     * @param {*} node HTML 요소를 나타내는 puppeteer의 핸들
+     * @param {*} attribute 가져올 속성의 이름
+     * @param {*} defaultval 해당 속성이 존재하지 않을 경우 기본적으로 반환할 값
+     * @returns
+     */
     async getAttribute(node, attribute, defaultval=""){
         let valueHandle = await node.getProperty(attribute);
         let val = await valueHandle.jsonValue();
         if (isDefined(val)){
-            //logdata(attribute + val);
-            //elements.push(val);
             return val;
         }
         return defaultval;
     }
 
+    /**
+     * 태그의 이름과 값 속성을 수집하고 특정 형식(formdata)으로 변환한다.
+     * @param {*} tags
+     * @returns {string}    formdata
+     */
     async searchTags(tags) {
         let formdata = "";
         for (let j = 0; j < tags.length; j++) {
@@ -215,6 +234,11 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * HTML에서 input, button, select, textarea 태그를 찾아서 입력 데이터를 추출한다.
+     * @param {*} node
+     * @returns {number} requestsAdded
+     */
     async searchForInputs(node){
         let requestsAdded = 0;
         let requestInfo = {}; //{action:"", method:"", elems:{"attributename":"value"}
@@ -273,6 +297,12 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * a, iframe 태그에서 유효한 URL을 추출한다.
+     * @param {*} page
+     * @param {*} parenturl
+     * @returns {number}
+     */
     async addURLsFromPage(page, parenturl){
         let requestsAdded = 0;
         try {
@@ -399,6 +429,12 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * 웹 페이지와 하위 프레임에서 데이터 수집 및 URL 추출을 수행한다.
+     * @param {*} page
+     * @param {*} parenturl
+     * @returns
+     */
     async addDataFromBrowser(page, parenturl){
         let requestsAdded = 0;
         let childFrames = this.page.mainFrame().childFrames();
@@ -433,6 +469,7 @@ export class RequestExplorer {
             try {
                 this.browser = await puppeteer.launch({
                     headless: this.appData.getHeadless(),
+                    // headless: false,
                     args: [
                         '--disable-features=site-per-process', '--no-sandbox', '--disable-setuid-sandbox', '--window-size=1920,1080'
                     ],
@@ -460,10 +497,11 @@ export class RequestExplorer {
                 }
             }, 10*1000);
 
-            this.page = await this.browser.newPage();
+            this.loginPage = await this.browser.newPage();
+
 
             try {
-                await this.page.setRequestInterception(true);
+                await this.loginPage.setRequestInterception(true);
 
                 /**
                  * puppeteer를 이용하여 로그인을 수행하는 부분
@@ -471,8 +509,8 @@ export class RequestExplorer {
                 if (this.loginData["perform_login"] === "Y") {
                     if (validateConfig(this.loginData)) {
                         try {
-                            const loginCookies = await doLogin(this.url, this.appData, this.page, this.requestsAdded, this.loginData, this.base_directory);
-                            await addCookiesToPage(loginCookies, this.page, this.appData.getSiteUrl(), this.cookieData, this.cookies)
+                            const loginCookies = await doLogin(this.url, this.appData, this.loginPage, this.requestsAdded, this.loginData, this.base_directory);
+                            await addCookiesToPage(loginCookies, this.loginPage, this.appData.getSiteUrl(), this.cookieData, this.cookies)
                                 .then(() => {
                                     console.log(`${ORANGE}[+] Success Cookies added to page.${ENDCOLOR}`)
                                 })
@@ -493,12 +531,19 @@ export class RequestExplorer {
                     let tempurl = new URL(req.url());
 
                     // css, jpg, gif, png, js, ico, woff2 파일은 SKIP
-                    if (tempurl.pathname.toLowerCase().match(/\.(css|jpg|gif|png|js|ico|woff2)$/)) {
+                    if (tempurl.pathname.toLowerCase().match(/\.(css|jpg|gif|png|js|ico|woff2|svg)$/)) {
                         req.continue()
-                        return;
+                        return
                     }
 
-                    // console.log(tempurl.href)
+                    if (this.appData.ignoreEndpoints) {
+                        for (let ignoreEndpoint of this.appData.ignoreEndpoints) {
+                            if (tempurl.pathname.includes(ignoreEndpoint)) {
+                                req.continue()
+                                return
+                            }
+                        }
+                    }
 
                     if (self.url.href === req.url()) {
                         // console.log("[!] SAME URL is requested.")   // TODO: 개발용으로 추가한 부분
@@ -514,7 +559,7 @@ export class RequestExplorer {
                         let foundRequest = FoundRequest.requestObjectFactory(req, self.appData.site_url.href);
                         foundRequest.from="InterceptedRequestSelf";
 
-                        for (let [pkey, pvalue] of Object.entries(foundRequest.getAllParams())){
+                        for (let [pkey, pvalue] of Object.entries(foundRequest.getAllParams())) {
                             if (typeof pvalue === "object"){
                                 pvalue = pvalue.values().next().value;
                             }
@@ -532,20 +577,14 @@ export class RequestExplorer {
                         }
                         console.log("\x1b[38;5;5mprocessRequest caught to add method and data and continueing \x1b[0m", req.url());
                         req.continue(pdata);
-
                     } else {
-                        self.appData.addInterestingRequest(req);
+                        // self.appData.addInterestingRequest(req);
 
                         tempurl.searchParams.forEach(function (value, key, parent) {
                             self.appData.addQueryParam(key, value);
                         });
-                        if (req.url().startsWith(self.appData.site_url.origin)){
-                            // console.log("[+] Intercepted in processRequest ", req.url(), req.method());
-                            let basename = path.basename(tempurl.pathname);
-                            if (req.url().indexOf("rest") > -1 && (req.method() === "POST" || req.method() === "PUT")){
-                                //console.log(basename, req.method(), req.headers(), req.resourceType());
-                            }
 
+                        if (req.url().startsWith(self.appData.site_url.origin)){
                             let foundRequest = FoundRequest.requestObjectFactory(req, self.appData.site_url.href);
                             foundRequest.from="InterceptedRequest";
 
@@ -558,32 +597,17 @@ export class RequestExplorer {
 
                             if (self.appData.addInterestingRequest(foundRequest) > 0){
                                 self.requestsAdded++;
-                                //console.log("[+] ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR}intercepted request req.url() = ", req.url());
                             }
-                            // skip if it has a period for nodejs apps
 
-                            let result = self.appData.addRequest(req.url(), req.method(), req.postData(), "interceptedRequest");
-                            if (result){
-                                console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.getRequestCount()}\x1b[0m`);
-                            } else {
-                                // console.log(`INTERCEPTED and ABORTED repeat URL ${req.url()}`);
-                            }
+                            // let result = self.appData.addRequest(req.url(), req.method(), req.postData(), "interceptedRequest");
+                            // if (result){
+                            //     console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.getRequestCount()}\x1b[0m`);
+                            // }
                         } else {
-
                             if (req.url().indexOf("gremlins") > -1){
-                                //console.log("[+] CONTINUING with getting some gremlins in here.");
+                                //console.log("[WC] CONTINUING with getting some gremlins in here.");
                                 req.continue();
                             } else {
-                                try{
-                                    let url = new URL(req.url());
-                                    if (req.url().startsWith("image/") || url.pathname.endsWith(".gif") || url.pathname.endsWith(".jpeg") || url.pathname.endsWith(".jpg") || url.pathname.endsWith(".woff") || url.pathname.endsWith(".ttf")){
-
-                                    } else {
-                                        //console.log(`[+] Ignoring request for ${req.url().substr(0,200)}`)
-                                    }
-                                } catch (e){
-                                    //console.log(`[+] Ignoring request for malformed url = ${req.url().substr(0,200)}`)
-                                }
                                 if (self.isLoading){
                                     req.continue();
                                 } else {
@@ -594,55 +618,6 @@ export class RequestExplorer {
                                 }
                             }
                         }
-                        // if (false && req.frame() === self.page.mainFrame()){
-                        //     console.log(`[+] Aborting request b/c frame == mainframe for ${req.url().substr(0,200)}`)
-                        //     //req.abort('aborted');
-                        //     req.respond(req.redirectChain().length
-                        //         ? { body: '' } // prevent 301/302 redirect
-                        //         : { status: 204 } // prevent navigation by js
-                        //     )
-                        // } else {
-                        //     if (req.isNavigationRequest() && req.frame() === self.page.mainFrame() ) {
-                        //         if (typeof self.last_nav_request !== "undefined" && self.last_nav_request === req.url()){
-                        //             console.log("[+] Aborting request b/c this is the same as last nav request, ignoring");
-                        //
-                        //             self.last_nav_request = req.url();
-                        //             req.respond(req.redirectChain().length
-                        //                 ? { body: '' } // prevent 301/302 redirect
-                        //                 : { status: 204 } // prevent navigation by js
-                        //             )
-                        //             return;
-                        //         }
-                        //         self.last_nav_request = req.url();
-                        //         if (req.url().indexOf("gremlins") > -1){
-                        //             req.continue();
-                        //             return;
-                        //         }
-                        //         if (self.isLoading){
-                        //             req.continue();
-                        //         } else {
-                        //             req.respond(req.redirectChain().length
-                        //                 ? { body: '' } // prevent 301/302 redirect
-                        //                 : { status: 204 } // prevent navigation by js
-                        //             )
-                        //         }
-                        //
-                        //     } else {
-                        //         if (req.frame() === self.page.mainFrame()){
-                        //             if (self.isLoading){
-                        //
-                        //                 self.loadedURLs.push(tempurl.origin + tempurl.pathname);
-                        //                 req.continue();
-                        //             } else {
-                        //                 req.continue();
-                        //             }
-                        //         } else {
-                        //             req.continue()
-                        //         }
-                        //
-                        //     }
-                        // }
-
                     }
                 }
 
@@ -714,6 +689,9 @@ export class RequestExplorer {
 
                 }
 
+                this.page = await this.browser.newPage();
+                await this.page.setRequestInterception(true);
+
                 this.page.on('request', interceptedRequest);
                 this.browser.on('targetchanged', interceptedTarget)
                 // this.page.on('console', consoleLog);
@@ -721,7 +699,6 @@ export class RequestExplorer {
 
                 await this.page.setCacheEnabled(false);
 
-                // await ExerciseTargetPage(this)
                 await ExerciseTarget(this)
                 this.reportResults()
             } catch (err) {

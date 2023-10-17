@@ -1,6 +1,6 @@
 {
   "request_crawler": {
-    "perform_login" : "N",
+    "perform_login" : "Y",
     "login_url": "http://witcher.kro.kr/wp-login.php",
     "usernameSelector": "#user_login",
     "usernameValue": "test",
@@ -12,13 +12,38 @@
     "form_submit_selector": "",
     "ignoreValues": [],
     "urlUniqueIfValueUnique": [],
-    "endpoints:": [
-      "http://witcher.kro.kr:4280/vulnerabilities/exec/",
-      "http://witcher.kro.kr:4280/vulnerabilities/sqli/",
-      "http://witcher.kro.kr:4280/vulnerabilities/sqli_blind/",
-      "http://witcher.kro.kr:4280/vulnerabilities/xss_d/",
-      "http://witcher.kro.kr:4280/vulnerabilities/xss_r/",
-      "http://witcher.kro.kr:4280/vulnerabilities/xss_s/"
+    "endpoints": [
+      "admin.php?page=zephyr_project_manager_projects",
+      "admin.php?page=zephyr_project_manager_tasks",
+      "admin.php?page=zephyr_project_manager_files",
+      "admin.php?page=zephyr_project_manager_activity",
+      "admin.php?page=zephyr_project_manager_calendar",
+      "admin.php?page=zephyr_project_manager_categories",
+      "admin.php?page=zephyr_project_manager_devices",
+      "admin.php?page=zephyr_project_manager_teams_members"
+    ],
+    "ignoreEndpoints": [
+      "index.php",
+      "about.php",
+      "contribute.php",
+      "credits.php",
+      "freedoms.php",
+      "privacy.php",
+      "index.php",
+      "upload.php",
+      "media-new.php",
+      "profile.php",
+      "export-personal-data.php",
+      "erase-personal-data.php",
+      "options-general.php",
+      "options-writing.php",
+      "options-reading.php",
+      "options-discussion.php",
+      "options-media.php",
+      "options-permalink.php",
+      "options-privacy.php",
+      "load-scripts.php",
+      "load-styles.php"
     ]
   }
 }

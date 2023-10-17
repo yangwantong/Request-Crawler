@@ -11,7 +11,7 @@ export const isDefined = (val) => {
     return !(typeof val === 'undefined' || val === null)
 }
 
-export const sleepg = (ms) => {
+export const sleep = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 

@@ -176,8 +176,8 @@ export class AppData {
         if (fs.existsSync(json_fn)) {
             console.log(`${BLUE}[!] Founded Endpoints in witcher_config.json.${ENDCOLOR}`);
             let jsonData = JSON.parse(fs.readFileSync(json_fn))["request_crawler"]
-            this.endpoints = ["endpoints"];
-            this.ignoreEndpoints = JSON.parse()
+            this.endpoints = jsonData["endpoints"];
+            this.ignoreEndpoints = jsonData["ignoreEndpoints"];
         }
     }
 
@@ -189,6 +189,12 @@ export class AppData {
             // }
             if (url.pathname.includes('logout')) {
                 return true;
+            } else {
+                for (let ignoreEndpoint of this.ignoreEndpoints) {
+                    if (url.pathname.includes(ignoreEndpoint)) {
+                        return true;
+                    }
+                }
             }
         } catch (ex) {
             console.error(`${RED}[-] An error occurred while ignoring request : ${ENDCOLOR}` + ex)
@@ -231,7 +237,7 @@ export class AppData {
                         }
                         req["attempts"] += 1;
                         this.save();
-                        console.log(`${YELLOW}[+] request data에 저장됨 : ${ENDCOLOR}` + key);
+                        console.log(`${YELLOW}[+] request_data.json 에 저장됨 : ${ENDCOLOR}` + key);
                         req["key"] = key;
                         this.currentRequest = req;
                         return req;
@@ -344,11 +350,16 @@ export class AppData {
             try {
                 reqkey = fRequest.getRequestKey();
             } catch {
-                console.error(`${RED}[-] reqkey ERROR. SKIPPING : ${ENDCOLOR}` + reqkey);
+                // console.error(`${RED}[-] reqkey ERROR. SKIPPING : ${ENDCOLOR}` + reqkey);
                 return false
             }
 
+            // console.log(`[addRequest] reqkey : ` + fRequest.getURL().href)
+
             if (reqkey in this.requestsFound) {
+                return false;
+            } else if (this.ignoreRequest(fRequest.getURL().href)) {
+                // console.log('[*] ignoreRequest CALLED : ', fRequest.getURL().href);
                 return false;
             } else {
                 fRequest.setId(this.getNextRequestId());
@@ -364,32 +375,37 @@ export class AppData {
         }
     }
 
+    /**
+     * 새로 발견된 URL을 requestsFound에 추가를 시도하고 성공한 경우 1을 반환한다.
+     * @param foundRequest
+     * @returns {number}
+     */
     addInterestingRequest(foundRequest){
-        let requestsAdded = 0 ;
+        let requestsAddedCount = 0 ;
         let tempURL = null
         try {
             tempURL = new URL(foundRequest._urlstr);
         } catch(err) {
             // console.error("ERROR : tempURL is INVALID")
-            return requestsAdded;
+            return requestsAddedCount;
         }
 
-        if (tempURL.pathname.match(/\.(css|jpg|gif|png|js|ico|woff2)$/)) {
+        if (tempURL.pathname.match(/\.(css|jpg|gif|png|js|ico|woff2|svg)$/)) {
             // console.log(`[*] Skipping ` + tempURL);    // TODO: 개발용으로 추가한 부분
-            return requestsAdded;
+            return requestsAddedCount;
         }
 
         let wasAdded = this.addRequest(foundRequest);
         if (wasAdded){
-            requestsAdded++;
+            requestsAddedCount++;
         }
-        return requestsAdded;
+        return requestsAddedCount;
     }
 
     addQueryParam(key, value) {
         let keycnt = 0;
 
-        this.inputSet.forEach(function (setkey) {
+        this.inputSet.forEach( (setkey) => {
             if (setkey.startsWith(key + "=")) {
                 keycnt++;
             }
