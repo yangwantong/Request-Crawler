@@ -35,9 +35,8 @@ if (process.argv.length > 2) {
     console.log(`${GREEN}[+] Headless: ${ENDCOLOR}` + headless)
     console.log('===============================================================\n\n')
 
-    if (process.argv[4] === '--no-headless') {
-        // TODO: headless와 관련된 설정은 아직 구현되지 않음
-        // headless = false
+    if (process.argv[3] === '--no-headless') {
+        headless = false
     }
 
     if (!fs.existsSync(path.join(BASE_DIRECTORY, "output"))) {
