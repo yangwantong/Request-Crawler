@@ -529,24 +529,11 @@ export class RequestExplorer {
 
                 const interceptedRequest = (req) => {
                     let tempurl = new URL(req.url());
-
-                    // css, jpg, gif, png, js, ico, woff2 파일은 SKIP
-                    if (tempurl.pathname.toLowerCase().match(/\.(css|jpg|gif|png|js|ico|woff2|svg)$/)) {
+                    if (tempurl.pathname.search(/\.css$/) > -1 || tempurl.pathname.search(/\.js$/) > -1) {
                         req.continue()
-                        return
+                        return;
                     }
-
-                    if (this.appData.ignoreEndpoints) {
-                        for (let ignoreEndpoint of this.appData.ignoreEndpoints) {
-                            if (tempurl.pathname.includes(ignoreEndpoint)) {
-                                req.continue()
-                                return
-                            }
-                        }
-                    }
-
                     if (self.url.href === req.url()) {
-                        // console.log("[!] SAME URL is requested.")   // TODO: 개발용으로 추가한 부분
                         let pdata = {
                             'method': self.method,
                             'postData': self.postData,
@@ -559,7 +546,7 @@ export class RequestExplorer {
                         let foundRequest = FoundRequest.requestObjectFactory(req, self.appData.site_url.href);
                         foundRequest.from="InterceptedRequestSelf";
 
-                        for (let [pkey, pvalue] of Object.entries(foundRequest.getAllParams())) {
+                        for (let [pkey, pvalue] of Object.entries(foundRequest.getAllParams())){
                             if (typeof pvalue === "object"){
                                 pvalue = pvalue.values().next().value;
                             }
@@ -573,17 +560,14 @@ export class RequestExplorer {
                         if (!self.isLoading){
                             req.respond({status:204});
                             return;
-                            //self.reinitPage = true;
                         }
                         console.log("\x1b[38;5;5mprocessRequest caught to add method and data and continueing \x1b[0m", req.url());
                         req.continue(pdata);
-                    } else {
-                        // self.appData.addInterestingRequest(req);
 
+                    } else {
                         tempurl.searchParams.forEach(function (value, key, parent) {
                             self.appData.addQueryParam(key, value);
                         });
-
                         if (req.url().startsWith(self.appData.site_url.origin)){
                             let foundRequest = FoundRequest.requestObjectFactory(req, self.appData.site_url.href);
                             foundRequest.from="InterceptedRequest";
@@ -599,15 +583,28 @@ export class RequestExplorer {
                                 self.requestsAdded++;
                             }
 
-                            // let result = self.appData.addRequest(req.url(), req.method(), req.postData(), "interceptedRequest");
-                            // if (result){
-                            //     console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.getRequestCount()}\x1b[0m`);
-                            // }
+                            let result = self.appData.addRequest(req.url(), req.method(), req.postData(), "interceptedRequest");
+                            if (result){
+                                console.log(`\x1b[38;5;2mINTERCEPTED REQUEST and ${GREEN} ${GREEN} ADDED ${ENDCOLOR}${ENDCOLOR} #${self.appData.collectedURL} ${req.url()} RF size = ${self.appData.getRequestCount()}\x1b[0m`);
+                            } else {
+                                console.log(`INTERCEPTED and ABORTED repeat URL ${req.url()}`);
+                            }
                         } else {
+
                             if (req.url().indexOf("gremlins") > -1){
                                 //console.log("[WC] CONTINUING with getting some gremlins in here.");
                                 req.continue();
                             } else {
+                                try{
+                                    let url = new URL(req.url());
+                                    if (req.url().startsWith("image/") || url.pathname.endsWith(".gif") || url.pathname.endsWith(".jpeg") || url.pathname.endsWith(".jpg") || url.pathname.endsWith(".woff") || url.pathname.endsWith(".ttf")){
+
+                                    } else {
+                                        //console.log(`[WC] Ignoring request for ${req.url().substr(0,200)}`)
+                                    }
+                                } catch (e){
+                                    //console.log(`[WC] Ignoring request for malformed url = ${req.url().substr(0,200)}`)
+                                }
                                 if (self.isLoading){
                                     req.continue();
                                 } else {
@@ -617,7 +614,59 @@ export class RequestExplorer {
                                     );
                                 }
                             }
+                            return;
                         }
+                        // What to do, from here
+                        //console.log("PROCESSED ", req.url(), req.isNavigationRequest());
+                        if (false && req.frame() === self.page.mainFrame()){
+                            console.log(`[WC] Aborting request b/c frame == mainframe for ${req.url().substr(0,200)}`)
+                            //req.abort('aborted');
+                            req.respond(req.redirectChain().length
+                                ? { body: '' } // prevent 301/302 redirect
+                                : { status: 204 } // prevent navigation by js
+                            )
+                        } else {
+                            if (req.isNavigationRequest() && req.frame() === self.page.mainFrame() ) {
+                                if (typeof self.last_nav_request !== "undefined" && self.last_nav_request === req.url()){
+                                    console.log("[WC] Aborting request b/c this is the same as last nav request, ignoring");
+
+                                    self.last_nav_request = req.url();
+                                    req.respond(req.redirectChain().length
+                                        ? { body: '' } // prevent 301/302 redirect
+                                        : { status: 204 } // prevent navigation by js
+                                    )
+                                    return;
+                                }
+                                self.last_nav_request = req.url();
+                                if (req.url().indexOf("gremlins") > -1){
+                                    req.continue();
+                                    return;
+                                }
+                                if (self.isLoading){
+                                    req.continue();
+                                } else {
+                                    req.respond(req.redirectChain().length
+                                        ? { body: '' } // prevent 301/302 redirect
+                                        : { status: 204 } // prevent navigation by js
+                                    )
+                                }
+
+                            } else {
+                                if (req.frame() === self.page.mainFrame()){
+                                    if (self.isLoading){
+
+                                        self.loadedURLs.push(tempurl.origin + tempurl.pathname);
+                                        req.continue();
+                                    } else {
+                                        req.continue();
+                                    }
+                                } else {
+                                    req.continue()
+                                }
+
+                            }
+                        }
+
                     }
                 }
 
