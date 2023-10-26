@@ -51,7 +51,7 @@ const initpage = async(url, doingReload=false) => {
             await ele.evaluate(node => node["hasClicker"] = "true");
         }
     }
-    for (const frame of page.mainFrame().childFrames()){
+    for (const frame of page.mainFrame().childFrames()) {
         const frElementHandles = await frame.$$('div,li,span,a,input,p,button');
         for (let ele of frElementHandles) {
             if (!doingReload){
@@ -140,12 +140,14 @@ const hasGremlinResults = () => {
 }
 
 const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", passwordValue="") => {
-    await re.page.evaluate((gremlinsHaveStarted, usernameValue, passwordValue)=>{
+    await re.page.evaluate( (gremlinsHaveStarted, usernameValue, passwordValue)=> {
         window.gremlinsHaveFinished = false
         window.gremlinsHaveStarted = gremlinsHaveStarted;
         gremlinsHaveStarted = true;
 
         let formEntries = {}
+
+        // 기본 window.alert 함수를 오버라이드하여 경고 대신 콘솔에 로그를 출력합니다.
         function overrideSelectNativeJS_Functions () {
             console.log("[WC] ---------------- OVERRIDING window.alert ------------------------------");
             window.alert = function alert (message) {
@@ -153,10 +155,11 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
         }
 
+
         function addJS_Node (text, s_URL, funcToRun) {
-            let D                                   = document;
-            let scriptNode                          = D.createElement ('script');
-            scriptNode.type                         = "text/javascript";
+            let D = document;
+            let scriptNode= D.createElement ('script');
+            scriptNode.type = "text/javascript";
             if (text)       scriptNode.textContent  = text;
             if (s_URL)      scriptNode.src          = s_URL;
             if (funcToRun)  scriptNode.textContent  = '(' + funcToRun.toString() + ')()';
@@ -240,6 +243,12 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
             return changedDOM;
         }
+
+        /**
+         * cnt 만큼 들여쓰기를 합니다.
+         * @param cnt {Number}   들여쓰기 횟수
+         * @returns {string}    들여쓰기 문자열
+         */
         function indent(cnt){
             let out = ""
             for (let x =0;x<cnt;x++){
@@ -247,13 +256,22 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
             return out;
         }
+
+
+        /**
+         * 페이지내에서 클릭 이벤트를 여러번 발생시키는 함수입니다.
+         * @param elements  {NodeListOf<elements>}     클릭 이벤트를 발생시킬 엘리먼트들의 배열
+         * @param level    {Number}    재귀호출 레벨
+         * @param parentClicks  {Array}    부모 엘리먼트들의 배열
+         * @returns {Promise<void>}
+         */
         async function clickSpam(elements, level=0, parentClicks=[]){
             if (level >= MAX_LEVEL){
                 console.log(`[WC] ${indent(level)} L${level} too high, skipping`);
                 return;
             }
             //let randomArr = shuffle(Array.from(Object.values(elements)));
-            let randomArr = Array.from(Object.values(elements));
+            let elementArr = Array.from(Object.values(elements));
             //console.log(`[WC] ${indent(level)} L${level} Starting cliky for ${randomArr.length} elements`);
             //t randomArr = Array.from(Object.values(elements));
 
@@ -262,7 +280,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             let startingURL = location.href;
             let startingDOM = document.querySelectorAll(CLICK_ELE_SELECTOR);
             let frames = window.frames; // or // let frames = window.parent.frames;
-            let frameurls = []
+            let frameurls = []  //
             if (frames){
                 for (let i = 0; i < frames.length; i++) {
                     startingDOM = [... startingDOM, ...frames[i].document.querySelectorAll(CLICK_ELE_SELECTOR)];
@@ -281,10 +299,8 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                     }
                 }
                 return framediff;
-
             }
             function report_frame_changes(frameurls) {
-
                 if (frames) {
                     for (let i = 0; i < frames.length; i++) {
                         if (frames[i].location !== frameurls[i]) {
@@ -293,22 +309,23 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                         }
                     }
                 }
-
             }
 
-            for (let eleIndex =0; eleIndex < randomArr.length; eleIndex++){
-                let ele = randomArr[eleIndex];
+            for (let eleIndex =0; eleIndex < elementArr.length; eleIndex++){
+                let ele = elementArr[eleIndex];
                 let textout = ele.textContent.replaceAll("\n",",").replaceAll("  ", "")
 
                 //console.log(`[WC] ${indent(level)} L${level} attempt to click on e#${eleIndex} of ${randomArr.length} : ${textout.length} ${textout.substring(0,50)}`);
                 try {
                     if (ele.href != null){
                         console.log(`${indent(level)} L${level} FOUND URL of ${ele.href}`)
+                        // TODO: IGNORING URL 확인 (witcher가 테스트 할 때 사용)
                         if (ele.href.indexOf("support.dlink.com") !== -1){
                             console.log(`[WC] IGNORING url of FOUND URL of ${ele.href}`)
                             continue;
                         }
                     }
+
                     let searchText="";
                     if (ele.outerHTML != null) {
                         searchText += ele.outerHTML;
@@ -319,6 +336,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                     if (ele.textContent != null) {
                         searchText += ele.textContent;
                     }
+
                     //console.log(`ele id=${ele.id} name=${ele.name}`)
                     if (usedText.has(ele.innerHTML) ){
                         //console.log("[WC] SKIPPING B/C IT'found in usedText, ");
@@ -340,17 +358,22 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
                     try {
 
+                        /**
+                         * 주어진 요소에 마우스 클릭을 발생시키는 역할을 합니다.
+                         * @param node    {HTMLElement}   마우스 클릭을 발생시킬 대상 DOM 요소
+                         * @param eventType {String}    발생시킬 마우스 이벤트 타입
+                         */
                         function triggerMouseEvent (node, eventType) {
                             if (level > 1){
                                 console.log(`[WC] ${indent(level)} L${level} ${indent(level)} L${level} triggering on ${node.textContent}`)
                             }
 
-                            usedText.add(node.innerHTML);
+                            usedText.add(node.innerHTML);   // 이미 클릭한 요소를 추적하기 위해 사용
                             let clickEvent = document.createEvent ('MouseEvents');
                             clickEvent.initEvent (eventType, true, true);
                             node.dispatchEvent (clickEvent);
-                            if(typeof node.click === 'function') {
-                                try{
+                            if(typeof node.click === 'function') {  // 클릭 가능한 요소인지 확인 후 클릭
+                                try {
                                     node.click()
                                 } catch (ex){
                                     console.log(`[WC] ${indent(level)} L${level} click method threw an error ${ex}`);
@@ -358,7 +381,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                             }
                         }
 
-                        for (let ev of mouseEvents){
+                        for (let ev of mouseEvents) {
                             //console.log("mouse event = ", ev);
                             let mainurl = window.location.href;
                             let hiddenChildren = [];
@@ -373,16 +396,16 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                             await sleep(50);
 
                             let mainurl_changed = mainurl !== window.location.href
-                            if (mainurl_changed || check_for_url_change_in_frames(frameurls)){
+                            if (mainurl_changed || check_for_url_change_in_frames(frameurls)) {
                                 // bubble up URL for change
-                                if (mainurl_changed){
+                                if (mainurl_changed) {
                                     console.log(`[WC] ${indent(level)} L${level} FOUND a change to main frame `, mainurl, window.location.href);
                                     console.log(`[WC-URL]${window.location.href}`);
                                 } else {
                                     report_frame_changes(frameurls)
                                 }
                                 // reload main frame
-                                await window.location.replace(main);
+                                await window.location.replace(mainurl); // fix : main -> mainurl로 수정
                                 // retrigger parents after reload to show the children
                                 for (let pc of parentClicks) {
                                     //console.log (`[WC] ${indent(level)} retriggering ${pc.textContent}`);
@@ -397,16 +420,16 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                                 }
                             }
                             let newlyVisibleLinks = []
-                            for (child of hiddenChildren){
+                            for (let child of hiddenChildren){
                                 if (child.offsetParent !== null){
-                                    try{
+                                    try {
                                         let newvislinks = ""
-                                        for (let subc of child.querySelectorAll(CLICK_ELE_SELECTOR)){
+                                        for (let subc of child.querySelectorAll(CLICK_ELE_SELECTOR)) {
                                             if (subc.offsetParent === null){
                                                 newvislinks += subc.textContent + ", ";
                                             }
                                         }
-                                        if (nawvislink.length === 0 ){
+                                        if (newvislinks.length === 0 ){
                                             newvislinks = child.textContent.replace("\n",",").replace(" ","");
                                         }
                                         console.log(`[WC] ${indent(level)} L${level} after clicking on ${ele.textContent} adding newly visible link ${newvislinks} `);
@@ -458,9 +481,14 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
 
             } //end for loop eleIndex
         }
+
+        /**
+         * Gremlins.js 가 브라우저에 로드되었는지 확인하는 함수입니다
+         * @returns {Promise<void>}
+         */
         async function checkHordeLoad(){
             if (typeof window.gremlins === 'undefined') {
-                console.log("cannot find gremlins, attempting to load on the fly");
+                console.log("로컬 Gremlins.js를 로드할 수 없습니다. 웹을 통해 Gremlins.js를 로드합니다.");
                 (function (d, script) {
                     script = d.createElement('script');
                     script.type = 'text/javascript';
@@ -498,25 +526,36 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                 }
             }
         }
+
+        /**
+         * 문서 내의 모든 <form> 요소를 찾아서 제출(submit)하는 역할을 합니다.
+         * @param doc   {Document}  문서 객체
+         * @returns {Promise<void>}
+         */
         async function submitForms(doc) {
-            let pforms = document.getElementsByTagName("form");
+            let pforms = doc.getElementsByTagName("form");
             for (let i = 0; i < pforms.length; i++) {
                 let frm = pforms[i];
                 if (typeof frm.submit === 'function') {
-                    console.log("Submitting a form");
+                    console.log("[ExerciseTarget] Submitting form ", frm.name);
                     frm.submit();
                 } else if (typeof frm.submit === 'undefined') {
-                    console.log("[WC] lameHorde: The method submit of ", frm, "is undefined");
+                    console.log("[ExerciseTarget] lameHorde: The method submit of ", frm, "is undefined");
                 } else {
                     //console.log("[WC] lameHorde: It's neither undefined nor a function. It's a " + typeof frm.submit, frm);
                 }
             }
         }
+
+        /**
+         * Gremlins.js의 하위 버전을 개발한 LameHorde를 실행하는 함수입니다.
+         * @returns {Promise<void>}
+         */
         async function lameHorde(){
             console.log("[WC] Searching and clicking.");
             window.alert = function(message) {/*console.log(`Intercepted alert with '${message}' `)*/};
 
-            let all_elements = document.querySelectorAll( CLICK_ELE_SELECTOR);
+            let all_elements = document.querySelectorAll(CLICK_ELE_SELECTOR);  //
             let frames = window.frames; // or // let frames = window.parent.frames;
             if (frames){
                 console.log(`[WC] FOUND ${all_elements.length} elements to attempt to click in main `);
@@ -534,6 +573,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
                 alert('got hashchange');
             }
             window.addEventListener("hashchange", hashChangeEncountered);
+
             let filter   = Array.prototype.filter;
             let clickableElements = filter.call( all_elements, function( node ) {
                 if (node.hasOwnProperty("href") && node.href.startsWith("http")){
@@ -547,6 +587,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             await clickSpam(all_elements);
 
             await submitForms(document);
+
             if (frames){
                 for (let i = 0; i < frames.length; i++) {
                     console.log(`[WC] Submit forms ${frames[i].location.href}`)
@@ -593,6 +634,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             }
             element.dispatchEvent(event);
         };
+
         const fillTextAreaElement = (element) => {
             let rnd =  Math.random();
             let value = "2";
@@ -802,8 +844,7 @@ const addCodeExercisersToPage = async (gremlinsHaveStarted, usernameValue="", pa
             'input:not([type])': fillTextElement,
         }
 
-        let randomizer = new gremlins.Chance();
-
+        let randomizer = new gremlins.Chance(); // 난수 생성
 
         try {
             if (gremlinsHaveStarted) {
@@ -855,8 +896,8 @@ export const ExerciseTarget = async (RequestExplorer) => {
     }
     let options = {timeout: 20000, waituntil: "networkidle2"};
     let madeConnection = false;
-    page.on('dialog', async dialog => {
-        console.log(`[WC] Dismissing Message: ${dialog.message()}`);
+    await page.on('dialog', async dialog => {
+        console.log(`[WC] Dismissing Message(1): ${dialog.message()}`);
         await dialog.dismiss();
     });
 
@@ -877,8 +918,8 @@ export const ExerciseTarget = async (RequestExplorer) => {
                 response = await page.goto(url.href, options);
             }
 
-            page.on('dialog', async dialog => {
-                console.log(`[WC] Dismissing Message: ${dialog.message()}`);
+            await page.on('dialog', async dialog => {
+                console.log(`[WC] Dismissing Message(2): ${dialog.message()}`);
                 await dialog.dismiss();
             });
 

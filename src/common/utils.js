@@ -16,7 +16,7 @@ export const sleep = (ms) => {
 }
 
 /**
- * Attempts to parse the text, if there's a syntax error then returns false
+ * 응답 페이지가 인터렉티브 페이지인지 확인 (contentType 필터링, body 태그 유무)
  * @param response
  * @param responseText
  * @returns {boolean}

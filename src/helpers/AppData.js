@@ -8,7 +8,7 @@ import fuzzySet from 'fuzzyset';
 const MAX_NUM_ROUNDS = 1;   // 한 페이지당 몇번 크롤링을 시도할 것인지
 
 export class AppData {
-    requestsFound = {};
+    requestsFound = {}; // {requestKey: FoundRequest}
     site_url;
     headless;
     inputSet = new Set();
@@ -53,27 +53,27 @@ export class AppData {
         }
     }
 
+    /**
+     * 동일한 도메인과 관련된 url을 반한다. (javascript, 외부 도메인 등은 무시)
+     * @param urlstr url
+     * @param parenturl
+     * @returns {*|string} urlstr이 유효한 경우 urlstr을 반환하고, 유효하지 않은 경우 빈 문자열을 반환한다.
+     */
     getValidURL(urlstr, parenturl) {
         let lowerus = urlstr.toLowerCase();
-        if (lowerus.startsWith("javascript")) {
+        if (lowerus.startsWith("javascript")) { // javascript로 시작하는 url은 무시
             return "";
         }
-        //console.log("\x1b[38;5;3mTESTING", urlstr, "\x1b[0m", ` for parent ${parenturl.origin}`);
 
-        //if (lowerus.search(/.php($|\?)/) > -1 || lowerus.search(/.html($|\?)/) > -1 || lowerus.search("#") > -1 ) {
-
-        if (lowerus.startsWith(parenturl.origin)) {
-            //console.log("\x1b[38;5;3mValidated ", urlstr, "\x1b[0m");
+        if (lowerus.startsWith(parenturl.origin)) { // 같은 도메인의 url인 경우
             return urlstr;
-        } else if (lowerus.startsWith("http")) {
-            //console.log("\x1b[38;5;3mFAILED TO validate ", urlstr, "\x1b[0m");
+        } else if (lowerus.startsWith("http")) {    // http로 시작하는 url인 경우 (외부의 url 무시)
             return "";
         }
 
-        if (lowerus.startsWith("/")) { // absolute path
-            console.log("\x1b[38;5;3mValidated from /", parenturl.origin + urlstr, "\x1b[0m");
+        if (lowerus.startsWith("/")) { // 절대 경로
             return parenturl.origin + urlstr;
-        } else { // relative path
+        } else { // 상대 경로
             let lastPathOut = ""
             try {
                 //console.log("\x1b[38;5;3mLast choice trying to add origin and pathname to lowerus ", parenturl.origin + path.dirname(parenturl.pathname) + urlstr, "\x1b[0m");

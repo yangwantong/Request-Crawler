@@ -3,12 +3,12 @@ import path from 'path';
 import process from "process";
 import puppeteer from "puppeteer";
 
-import { doLogin, addCookiesToPage } from "./PuppeteerLogin.js";
-import {GREEN, ENDCOLOR, RED, ORANGE, isDefined} from '../common/utils.js';
-import { validateConfig } from "../common/validateConfig.js";
+import {addCookiesToPage, doLogin} from "./PuppeteerLogin.js";
+import {ENDCOLOR, GREEN, isDefined, ORANGE, RED} from '../common/utils.js';
+import {validateConfig} from "../common/validateConfig.js";
 // import { ExerciseTargetPage } from "./ExerciseTargetPage";
-import { ExerciseTarget } from "./ExerciseTarget.js";
-import { FoundRequest } from "./FoundRequest.js";
+import {ExerciseTarget} from "./ExerciseTarget.js";
+import {FoundRequest} from "./FoundRequest.js";
 
 const MAX_NUM_ROUNDS = 1;   // 한 페이지당 몇번 크롤링을 시도할 것인지
 
@@ -125,7 +125,7 @@ export class RequestExplorer {
     }
 
     /**
-     * HTML에서 <a>, <iframe> 태그로부터 특정 속성 값을 추출한다.
+     * HTML에서 tag 인자로 받은 태그로부터 특정 속성 값을 추출한다.
      * @param {*} page 현재 웹 페이지를 나타내는 puppeteer의 핸들
      * @param {*} tag 추출하려는 HTML 태그의 종류
      * @param {*} attribute 추출하려는 속성(attribute)의 이름
@@ -323,6 +323,11 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * form 태그에서 데이터를 수집한다.
+     * @param page
+     * @returns {Promise<number>}
+     */
     async addFormData(page) {
         let requestsAdded = 0;
         try{
@@ -345,11 +350,17 @@ export class RequestExplorer {
         return requestsAdded;
     }
 
+    /**
+     * 주어진 요청과 requestsFound를 비교하여 일치하는 URL, POST 데이터, 매개 변수 또는 일치하는 특정 조건을 찾는 함수
+     * @param soughtRequest {FoundRequest}  주어진 요청
+     * @param forceMatch {boolean}
+     * @returns {boolean}
+     */
     containsEquivURL(soughtRequest, forceMatch=false){
 
-        let soughtURL = new URL(soughtRequest.url());
+        let soughtURL = new URL(soughtRequest.getUrlstr());
         let queryString = soughtURL.search.substring(1);
-        let postData = soughtRequest.postData();
+        let postData = soughtRequest.getPostData();
         let soughtParamsArr = soughtRequest.getAllParams();
         // let trimmedSoughtParams = [];
         // for (let sp of )
@@ -357,16 +368,15 @@ export class RequestExplorer {
         let nbrParams = Object.keys(soughtParamsArr).length;
         // if nbrParams*matchPercent is more than nbrParams-1, it's requires a 100% parameter match
         let fullMatchEquiv = nbrParams * this.appData.getFuzzyMatchEquivPercent();
-
         let soughtPathname = soughtRequest.getPathname();
-
         let keyMatch = 0;
 
         for (let savedReq of Object.values(this.appData.requestsFound)){
             let prevURL = savedReq.getURL();
             let prevPathname = savedReq.getPathname();
 
-            if (prevURL.href === soughtURL.href && savedReq.postData === soughtRequest.postData() && savedReq.hash === soughtURL.hash){
+            // 현재 요청(soughtRequest)과 저장된 요청 간의 URL, POST 데이터 및 해시 비교를 수행하여 완벽하게 일치하는 경우 true를 반환한다.
+            if (prevURL.href === soughtURL.href && savedReq.postData === soughtRequest.getPostData() && savedReq.hash === soughtURL.hash){
                 return true;
             }
             if (forceMatch){
@@ -380,9 +390,7 @@ export class RequestExplorer {
                     if (re.test(postData) && re.test(testPostData)){
                         let pd_match = re.exec(postData)
                         let test_pd_match = re.exec(testPostData);
-
-                        let matchVal = this.appData.fuzzyValueMatch(pd_match[1], test_pd_match[1])
-                        return matchVal;
+                        return this.appData.fuzzyValueMatch(pd_match[1], test_pd_match[1]);
                     }
                 }
 
@@ -408,6 +416,13 @@ export class RequestExplorer {
         return (nbrParams <= 3 && keyMatch >= this.appData.getMaxKeyMatches());
     }
 
+    /**
+     *
+     * @param links
+     * @param parenturl
+     * @param origin
+     * @returns {number}
+     */
     addValidURLS(links, parenturl, origin){
         let requestsAdded = 0;
         for (let link of links){
