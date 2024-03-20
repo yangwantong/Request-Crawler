@@ -16,10 +16,10 @@
 Ref : <a href="https://github.com/sefcom/Witcher/tree/master/base/helpers/request_crawler">Witcher's Request Crawler</a>
 
 ## Features
-- [x] 로그인을 수행한 후 크롤링 가능
-- [x] 크롤링 할 페이지의 endpoint를 우선적으로 크롤링 가능
-- [x] 크롤링 할 때 무시할 endpoint 설정 가능
-- [x] gremlins.js 를 이용하여 랜덤한 이벤트 발생을 통한 크롤링 가능
+- [x] 登录后可以爬虫
+- [x] 可优先追踪页面的endpoint
+- [x] 可设置忽略爬虫的endpoint
+- [x] 利用gremlins.js可通过随机事件进行爬虫
 
 ## Getting started
 ### 1. 크롤러 다운로드
