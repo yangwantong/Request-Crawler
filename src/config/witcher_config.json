@@ -7,7 +7,7 @@
     "passwordSelector": "#user_pass",
     "passwordValue": "test",
     "submitType": "enter",
-    "positiveLoginMessage": "프로필",
+    "positiveLoginMessage": "title=\"Current user\"",
     "method": "POST",
     "form_submit_selector": "",
     "ignoreValues": [],
